@@ -16,8 +16,11 @@ export function ValuesSection() {
         <div className="mt-14 grid gap-6 sm:grid-cols-2">
           {VALUES.map((v, i) => (
             <Reveal key={v.title} delay={staggerDelay(i)}>
-              <div className="flex h-full gap-4 rounded-md bg-white p-6 shadow-sm">
-                <span className="mt-1 h-8 w-1.5 shrink-0 rounded-full bg-gradient-buddy" aria-hidden="true" />
+              <div className="group flex h-full gap-4 rounded-md border border-transparent bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-pink/30 hover:shadow-md">
+                <span
+                  className="mt-1 h-8 w-1.5 shrink-0 rounded-full bg-gradient-buddy transition-transform duration-200 group-hover:scale-y-125"
+                  aria-hidden="true"
+                />
                 <div>
                   <h3 className="font-display text-lg font-semibold text-ink">
                     {v.title}

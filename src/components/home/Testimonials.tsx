@@ -23,7 +23,7 @@ export function Testimonials({
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((t, i) => (
             <Reveal key={t.id} delay={staggerDelay(i)}>
-              <figure className="flex h-full flex-col rounded-md border border-border bg-white p-6 shadow-sm">
+              <figure className="flex h-full flex-col rounded-md border border-border bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-pink/30 hover:shadow-md">
                 <Quote className="text-pink" size={22} aria-hidden="true" />
                 <blockquote className="mt-3 flex-1 text-[15px] leading-relaxed text-ink/80">
                   &ldquo;{t.quote}&rdquo;

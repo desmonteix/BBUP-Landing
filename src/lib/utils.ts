@@ -33,7 +33,13 @@ export function isPastEvent(iso: string): boolean {
  * treats every export of a client-directive module as a client reference —
  * calling a plain function from a Server Component (About/Home sections)
  * fails even though staggerDelay itself has no client-only behavior.
+ *
+ * Kept small (0.02-0.04s/item, design-system MASTER.md "Motion") so a
+ * longer grid — the team section, the events grid — finishes revealing
+ * quickly instead of feeling sluggish; a bigger per-item delay is the kind
+ * of thing that reads as generic template motion rather than a deliberate
+ * detail.
  */
-export function staggerDelay(index: number, step = 0.08, max = 0.4) {
+export function staggerDelay(index: number, step = 0.03, max = 0.3) {
   return Math.min(index * step, max);
 }

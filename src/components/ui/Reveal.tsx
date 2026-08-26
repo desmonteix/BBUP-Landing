@@ -6,11 +6,16 @@ import type { ReactNode } from "react";
 /**
  * Viewport-triggered scroll reveal. `transform`/`opacity` only. Honors
  * prefers-reduced-motion by rendering with no animation at all.
+ *
+ * Motion parameters (design-system/best-buddy-up/MASTER.md "Motion"): a
+ * small 8-16px offset and a quick 300-400ms ease-out read as a UI detail;
+ * anything larger reads as a slide-in effect, which is the generic-feeling
+ * "AI template" tell this was tightened away from.
  */
 export function Reveal({
   children,
   delay = 0,
-  y = 20,
+  y = 12,
   className = "",
   as = "div",
 }: {
@@ -27,7 +32,7 @@ export function Reveal({
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] },
+      transition: { duration: 0.35, delay, ease: "easeOut" },
     },
   };
 

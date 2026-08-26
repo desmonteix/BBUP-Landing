@@ -36,9 +36,15 @@ export function WhoWeAre() {
 
 function FactCard({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-md border border-border bg-white p-6 shadow-sm transition-shadow duration-200 hover:shadow-md">
-      <h3 className="font-display text-base font-semibold text-ink">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-ink/65">{body}</p>
+    <div className="group flex gap-4 rounded-md border border-border bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-pink/30 hover:shadow-md">
+      <span
+        className="mt-1 h-8 w-1.5 shrink-0 rounded-full bg-gradient-buddy transition-transform duration-200 group-hover:scale-y-125"
+        aria-hidden="true"
+      />
+      <div>
+        <h3 className="font-display text-base font-semibold text-ink">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-ink/65">{body}</p>
+      </div>
     </div>
   );
 }

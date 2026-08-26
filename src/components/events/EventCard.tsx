@@ -20,7 +20,7 @@ export function EventCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-md border border-border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg focus-visible:-translate-y-1 focus-visible:shadow-lg focus-visible:outline-none focus-visible:shadow-glow"
+      className="group flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-md border border-border bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-pink/30 hover:shadow-lg focus-visible:-translate-y-1 focus-visible:shadow-lg focus-visible:outline-none focus-visible:shadow-glow"
     >
       <div className="relative aspect-[16/9] overflow-hidden bg-paper-sunk">
         <Image
@@ -57,7 +57,7 @@ export function EventCard({
           {isFull && !isPast && <Badge tone="error">Full</Badge>}
         </div>
 
-        <h3 className="mt-3 font-display text-lg font-semibold leading-snug text-ink">
+        <h3 className="mt-3 font-display text-lg font-semibold leading-snug text-ink transition-colors duration-200 group-hover:text-pink">
           {event.title}
         </h3>
 
