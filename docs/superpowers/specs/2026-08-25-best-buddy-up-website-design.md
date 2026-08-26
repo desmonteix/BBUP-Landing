@@ -97,6 +97,10 @@ events
   price_usd     numeric, nullable (required if type = 'paid')
   capacity      integer, nullable (null = unlimited)
   status        enum('open', 'closed')
+  category      enum('Events', 'Finance', 'Legal', 'Merch', 'S&C',
+                      'Social Media', 'Sports', 'Tandem', 'Trips')
+                -- the committee that owns/runs the event; drives the
+                -- category badge color on the event card, see §6
   created_at    timestamptz
 
 registrations
@@ -132,9 +136,14 @@ newsletter_subscribers
   blurb linking to the full About page, teaser of the next upcoming event,
   featured testimonial quotes, newsletter signup block.
 - **About Us (`/about`)** — full mission/story, values, team grid (photo +
-  name + role), fuller set of testimonial quote cards.
+  name + role), fuller set of testimonial quote cards. Team members are
+  grouped by committee (Events, Finance, Legal, Merch, S&C, Social Media,
+  Sports, Tandem, Trips — see §6 for each committee's color); each
+  committee's group heading/section uses that committee's color as an
+  accent.
 - **Events (`/events`)** — grid of upcoming events (free badge, or "from
-  S/ X / $Y" shown only where price-safe — see pricing rule below) and a
+  S/ X / $Y" shown only where price-safe — see pricing rule below), each
+  card showing a small category badge colored per its committee (§6), and a
   separate/collapsed section for past events. Clicking a card opens the
   **event detail in-page** (modal / expandable panel) — **not** a separate
   route per event. The detail view shows the full description, date,
@@ -173,17 +182,44 @@ newsletter_subscribers
 - **Admin (`/admin`)** — Supabase-Auth-gated login, restricted to the
   `admins` allow-list (organizers only, separate from attendee accounts).
   Event list with create/edit (title, description, date, location, cover
-  image, free/paid + PEN price + USD price, capacity, open/closed toggle)
-  and, per event, a registrant table (name, email, phone, nationality,
-  currency, amount, payment status).
+  image, free/paid + PEN price + USD price, capacity, open/closed toggle,
+  committee category — dropdown of the 9 committees in §6) and, per event, a
+  registrant table (name, email, phone, nationality, currency, amount,
+  payment status).
 
 ## 6. Visual design & animation
 
-- **Palette:** drawn from the Best Buddy UP! logo — magenta/pink → sky-blue
-  gradient, white, and a neutral dark (near-black or deep plum) for text.
-  Gradient used as an accent (buttons, dividers, background blobs), not as a
-  full-bleed background everywhere — keeps it feeling premium rather than
-  purely playful.
+- **Core brand palette:** drawn from the Best Buddy UP! logo — magenta/pink
+  → sky-blue gradient, white, and a neutral dark (near-black or deep plum)
+  for text. This is what primary UI — main CTAs, links, buttons, the hero —
+  should stay built from, so the site reads as one cohesive brand rather
+  than a rainbow. Gradient used as an accent (buttons, dividers, background
+  blobs), not as a full-bleed background everywhere — keeps it feeling
+  premium rather than purely playful.
+- **Committee palette:** the org has 9 committees, each with its own brand
+  color, supplied as reference gradient swatches in
+  `Lading/Paleta de colores/*.png` (one file per committee, named after it).
+  These are used specifically — and only — for the two structural cases
+  called out in §5: the committee-grouped Team section on About Us, and the
+  category badge on Event cards. They are not a general-purpose "pick any
+  accent color" palette — each color's job is to mean its committee, so
+  using "Sports cyan" somewhere unrelated to sports would undercut that.
+  Sample the exact gradient stops from the source PNGs when implementing
+  (they're gradients, not flat colors); approximate reference hues below —
+  verify precisely against the files rather than trusting these by eye:
+
+  | Committee | Swatch file | Approx. hue |
+  |---|---|---|
+  | Events | `Events.png` | vivid pink/magenta (~#FF3D9A range) |
+  | Finance | `Finance.png` | vivid blue (~#3E8EF7 range) |
+  | Legal | `Legal.png` | steel gray/silver (~#A0A0A0 range) |
+  | Merch | `Merch.png` | vivid orange (~#FFA020 range) |
+  | S&C (Social & Cultural) | `S&C.png` | periwinkle purple (~#9B7FF0 range) |
+  | Social Media | `Social Media.png` | bright fuchsia (~#EA3DE0 range) |
+  | Sports | `Sports.png` | sky cyan (~#6FD4F5 range) |
+  | Tandem | `Tandem.png` | fresh green (~#66C46A range) |
+  | Trips | `Trips.png` | golden yellow (~#FFCB2E range) |
+
 - **Typography:** bold, rounded display font for headings (echoing the
   logo's chunky lettering), paired with a clean, highly legible sans for
   body copy.
@@ -237,9 +273,10 @@ swapped for real photos later. Recommended shot list:
 - Built inside `c:\Users\matid\BBUP\Lading`, which now has its own isolated
   git repository (separate from the pre-existing repo rooted at
   `C:\Users\matid`).
-- Existing asset: `Lading/Captura de pantalla 2026-08-20 100901.png` (the
-  Best Buddy UP! logo) — used as the visual/color reference for the design
-  system.
+- Existing assets: `Lading/Captura de pantalla 2026-08-20 100901.png` (the
+  Best Buddy UP! logo) and `Lading/Paleta de colores/*.png` (9 committee
+  color swatches) — used as the visual/color reference for the design
+  system, see §6.
 
 ## 10. Open items for later (not blocking this build)
 
