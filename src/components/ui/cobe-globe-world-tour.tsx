@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState, useMemo } from "react"
-import createGlobe from "cobe"
-import { useReducedMotion } from "framer-motion"
+import { useEffect, useMemo, useRef, useState } from "react"
+import createGlobe, { type Globe } from "cobe"
+import { motion, useReducedMotion } from "framer-motion"
 
 interface TourStop {
   id: string
@@ -15,8 +15,10 @@ interface GlobeWorldTourProps {
   stops?: TourStop[]
   destination?: TourStop
   className?: string
-  stopDuration?: number
-  destinationDuration?: number
+  /** Total time for the continuous sweep through every stop, ending at
+   * the destination — NOT a per-stop dwell time (there is no per-stop
+   * dwell; see the module doc comment). */
+  tourDurationMs?: number
 }
 
 const defaultStops: TourStop[] = [
@@ -42,6 +44,18 @@ const defaultDestination: TourStop = {
   flag: "🇵🇪",
 }
 
+/** Radians of idle auto-rotation per millisecond once parked on Peru — a
+ * full lap takes ~100s, deliberately barely-perceptible ("very slow idle
+ * rotation," not a second tour). */
+const IDLE_DRIFT_RAD_PER_MS = (Math.PI * 2) / 100_000
+
+/** The final "into Peru" leg is deliberately allocated more of the total
+ * duration than its raw angular distance alone would give it (see
+ * `buildFlightPath`), and is the only leg that eases instead of moving at
+ * the sweep's constant speed — the one deliberate deceleration/landing in
+ * an otherwise unbroken pass. */
+const LANDING_LEG_WEIGHT_MULTIPLIER = 2.4
+
 function locationToAngles(lat: number, lng: number): [number, number] {
   return [
     Math.PI - ((lng * Math.PI) / 180 - Math.PI / 2),
@@ -49,98 +63,174 @@ function locationToAngles(lat: number, lng: number): [number, number] {
   ]
 }
 
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+interface FlightLeg {
+  fromPhi: number
+  fromTheta: number
+  toPhi: number
+  toTheta: number
+  /** Share of tourDurationMs this leg consumes. */
+  durationMs: number
+  /** Cumulative ms at which this leg ends. */
+  endsAtMs: number
+  eased: boolean
+}
+
 /**
- * Signature Home hero visual (added per coordinator direction, supersedes
- * the earlier static hero photo — "Crossing Paths" remains as the
- * section-divider motif, but this globe is now the first thing a visitor
- * sees). A rotating globe that tours a handful of countries exchange
- * students come from and always lands on, and lingers longest on, Peru —
- * a literal visualization of the org's mission instead of a stock photo.
+ * Builds one continuous flight path through every waypoint, phi-unwrapped
+ * so each leg always takes the visually-shortest turn (never spins the
+ * long way around), with per-leg duration allocated proportional to
+ * angular distance so the camera holds a roughly constant angular speed
+ * across the whole sweep — the thing that makes it read as one continuous
+ * pass instead of a series of stops. Only the final leg (into the
+ * destination) is weighted longer and eased, for the one deliberate
+ * landing deceleration.
+ */
+function buildFlightPath(itinerary: TourStop[], tourDurationMs: number): FlightLeg[] {
+  const angles = itinerary.map((s) => locationToAngles(s.location[0], s.location[1]))
+
+  // Unwrap phi so consecutive legs never jump more than half a turn.
+  const unwrapped: [number, number][] = []
+  let prevPhi: number | null = null
+  for (const [phi, theta] of angles) {
+    let p = phi
+    if (prevPhi !== null) {
+      while (p - prevPhi > Math.PI) p -= Math.PI * 2
+      while (p - prevPhi < -Math.PI) p += Math.PI * 2
+    }
+    unwrapped.push([p, theta])
+    prevPhi = p
+  }
+
+  const rawLegs: { fromPhi: number; fromTheta: number; toPhi: number; toTheta: number; weight: number }[] = []
+  for (let i = 0; i < unwrapped.length - 1; i++) {
+    const from = unwrapped[i]
+    const to = unwrapped[i + 1]
+    if (!from || !to) continue
+    const dPhi = to[0] - from[0]
+    const dTheta = to[1] - from[1]
+    const isLandingLeg = i === unwrapped.length - 2
+    const distance = Math.sqrt(dPhi * dPhi + dTheta * dTheta) || 0.05
+    rawLegs.push({
+      fromPhi: from[0],
+      fromTheta: from[1],
+      toPhi: to[0],
+      toTheta: to[1],
+      weight: isLandingLeg ? distance * LANDING_LEG_WEIGHT_MULTIPLIER : distance,
+    })
+  }
+
+  const totalWeight = rawLegs.reduce((sum, leg) => sum + leg.weight, 0) || 1
+  let cumulative = 0
+  return rawLegs.map((leg, i) => {
+    const durationMs = (leg.weight / totalWeight) * tourDurationMs
+    cumulative += durationMs
+    return {
+      fromPhi: leg.fromPhi,
+      fromTheta: leg.fromTheta,
+      toPhi: leg.toPhi,
+      toTheta: leg.toTheta,
+      durationMs,
+      endsAtMs: cumulative,
+      eased: i === rawLegs.length - 1,
+    }
+  })
+}
+
+/**
+ * Signature Home hero visual: a full-bleed globe that makes one continuous
+ * ~5-second flight through a handful of countries exchange students come
+ * from, then lands on and stays parked on Peru (highlighted red) — a
+ * literal visualization of the org's mission instead of a stock photo.
  *
- * // VERIFICAR / adaptation note: the coordinator-supplied source used an
+ * Motion design (per explicit direction — this is NOT a "hold on country
+ * A, jump to B, hold, jump to C" slideshow): the camera moves continuously
+ * for the whole pass, computed directly from elapsed wall-clock time
+ * against a precomputed flight path (`buildFlightPath`) rather than
+ * chasing a per-stop target with frame-count-based easing — the latter
+ * either never visually arrives within a short dwell or, if sped up
+ * enough to arrive, still reads as discrete hops between rests. A single
+ * continuous parametric path has no such rest points by construction; the
+ * only deliberate deceleration is the final leg into Peru.
+ *
+ * // VERIFICAR / adaptation note: the originally-referenced source used an
  * // `onRender` callback option on `createGlobe`, which is real in cobe
  * // 0.6.x's API but does NOT exist in cobe 2.x (the current published
- * // version, installed here, which added `arcs`/`markerElevation`
- * // instead — no single published cobe version has both). Verified
- * // directly against node_modules/cobe/dist/index.d.ts for 2.0.1: no
- * // `onRender` field. Rather than drop the flight-path arcs (the nicest
- * // part of the "world tour" visual) or silently downgrade to 0.6.x,
- * // this drives the exact same phi/theta easing manually via
- * // requestAnimationFrame + `globe.update()` (2.x's actual per-frame
- * // API) instead of relying on a callback the library invokes itself.
- * // Visual behavior is identical to the original onRender version.
+ * // version, installed here — verified directly against
+ * // node_modules/cobe/dist/index.d.ts). This drives the camera by calling
+ * // the real 2.x per-frame API, `globe.update()`, from its own
+ * // requestAnimationFrame loop instead.
  *
- * Accessibility: under `prefers-reduced-motion`, the auto-touring stops
- * entirely and the globe freezes on Peru rather than continuously cycling
- * — see the `prefersReducedMotion` branches below. The globe still
- * renders (a WebGL canvas needs a render loop to draw at all), but
- * nothing visibly moves once the camera reaches Peru, so there's no
- * perceived animation.
+ * Marker color: cobe 2.x's `Marker.color` is a real documented per-marker
+ * override (confirmed in the same type file) — used directly to render
+ * Peru's marker in red without needing a DOM-overlay fallback.
+ *
+ * Accessibility: under `prefers-reduced-motion`, the flight never plays —
+ * the globe starts parked on Peru already (see `initialArrived`). The
+ * brief arrival zoom (see `arrived`) still plays once even in that case,
+ * since it's a small purposeful transition rather than a distracting
+ * loop; there is no idle auto-rotation under reduced motion either.
  */
 export function GlobeWorldTour({
   stops = defaultStops,
   destination = defaultDestination,
   className = "",
-  stopDuration = 2200,
-  destinationDuration = 4500,
+  tourDurationMs = 5000,
 }: GlobeWorldTourProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const phiRef = useRef(0)
-  const thetaRef = useRef(0.2)
-  const targetPhiRef = useRef(0)
-  const targetThetaRef = useRef(0.2)
   const prefersReducedMotion = useReducedMotion()
 
   const itinerary = useMemo(() => [...stops, destination], [stops, destination])
-  const destinationIndex = itinerary.length - 1
-
-  const [stepIndex, setStepIndex] = useState(
-    prefersReducedMotion ? destinationIndex : 0
+  const flightPath = useMemo(
+    () => buildFlightPath(itinerary, tourDurationMs),
+    [itinerary, tourDurationMs]
   )
-  const currentStop = itinerary[stepIndex % itinerary.length] ?? destination
-  const isDestination = currentStop.id === destination.id
+  const finalLeg = flightPath[flightPath.length - 1]
 
+  const [displayIndex, setDisplayIndex] = useState(prefersReducedMotion ? itinerary.length - 1 : 0)
+  const [arrived, setArrived] = useState(prefersReducedMotion ?? false)
+
+  // `useReducedMotion()` resolves to null on the very first client render
+  // (matchMedia isn't readable until mount) and only becomes true/false a
+  // moment later — this catches that case so a user with the preference
+  // set doesn't briefly see the tour start before the corrective render.
   useEffect(() => {
-    // Reduced motion: land on Peru once and stop — no touring loop at all.
-    if (prefersReducedMotion) return
-
-    const delay = isDestination ? destinationDuration : stopDuration
-    const timeout = setTimeout(() => {
-      setStepIndex((i) => (i + 1) % itinerary.length)
-    }, delay)
-    return () => clearTimeout(timeout)
-  }, [stepIndex, isDestination, destinationDuration, stopDuration, itinerary.length, prefersReducedMotion])
-
-  useEffect(() => {
-    const [phi, theta] = locationToAngles(currentStop.location[0], currentStop.location[1])
-    targetPhiRef.current = phi
-    targetThetaRef.current = theta
-    // Reduced motion: snap the camera straight to Peru instead of easing
-    // toward it frame by frame, so there's no perceptible motion at all.
     if (prefersReducedMotion) {
-      phiRef.current = phi
-      thetaRef.current = theta
+      setDisplayIndex(itinerary.length - 1)
+      setArrived(true)
     }
-  }, [currentStop, prefersReducedMotion])
+  }, [prefersReducedMotion, itinerary.length])
+
+  const currentStop = itinerary[displayIndex] ?? destination
+  const isDestinationLabel = currentStop.id === destination.id
 
   const markers = useMemo(
     () =>
       itinerary.map((stop) => ({
         location: stop.location,
         size: stop.id === destination.id ? 0.09 : 0.05,
+        // Real per-marker override (cobe 2.x) — Peru renders red, every
+        // other stop uses the shared dark markerColor.
+        color:
+          stop.id === destination.id
+            ? ([0.86, 0.15, 0.15] as [number, number, number])
+            : ([0.13, 0.13, 0.13] as [number, number, number]),
       })),
     [itinerary, destination.id]
   )
 
   const arcs = useMemo(() => {
-    const result: { start: [number, number]; end: [number, number]; color: [number, number, number] }[] = []
+    const result: { from: [number, number]; to: [number, number]; color: [number, number, number] }[] = []
     for (let i = 0; i < itinerary.length - 1; i++) {
       const stop = itinerary[i]
       const next = itinerary[i + 1]
       if (!stop || !next) continue
       result.push({
-        start: stop.location,
-        end: next.location,
+        from: stop.location,
+        to: next.location,
         color:
           next.id === destination.id
             ? ([0.86, 0.15, 0.15] as [number, number, number])
@@ -151,18 +241,50 @@ export function GlobeWorldTour({
   }, [itinerary, destination.id])
 
   useEffect(() => {
-    if (!canvasRef.current) return
+    if (!canvasRef.current || !finalLeg) return
     const canvas = canvasRef.current
-    let globe: ReturnType<typeof createGlobe> | null = null
+    let globe: Globe | null = null
     let raf = 0
+    let startTime: number | null = null
 
-    function frame() {
-      if (globe) {
-        const ease = prefersReducedMotion ? 1 : 0.04
-        phiRef.current += (targetPhiRef.current - phiRef.current) * ease
-        thetaRef.current += (targetThetaRef.current - thetaRef.current) * ease
-        globe.update({ phi: phiRef.current, theta: thetaRef.current })
+    function frame(now: number) {
+      if (!globe) {
+        raf = requestAnimationFrame(frame)
+        return
       }
+
+      if (prefersReducedMotion || !finalLeg) {
+        globe.update({ phi: finalLeg?.toPhi ?? 0, theta: finalLeg?.toTheta ?? 0.2 })
+        raf = requestAnimationFrame(frame)
+        return
+      }
+
+      if (startTime === null) startTime = now
+      const elapsed = now - startTime
+
+      if (elapsed < tourDurationMs) {
+        let legIndex = flightPath.findIndex((leg) => elapsed <= leg.endsAtMs)
+        if (legIndex === -1) legIndex = flightPath.length - 1
+        const leg = flightPath[legIndex]
+        if (leg) {
+          const legStart = legIndex === 0 ? 0 : (flightPath[legIndex - 1]?.endsAtMs ?? 0)
+          const rawT = leg.durationMs > 0 ? (elapsed - legStart) / leg.durationMs : 1
+          const t = Math.min(Math.max(rawT, 0), 1)
+          const eased = leg.eased ? easeOutCubic(t) : t
+          const phi = leg.fromPhi + (leg.toPhi - leg.fromPhi) * eased
+          const theta = leg.fromTheta + (leg.toTheta - leg.fromTheta) * eased
+          globe.update({ phi, theta })
+
+          const labelIndex = t < 0.5 ? legIndex : legIndex + 1
+          setDisplayIndex((prev) => (prev === labelIndex ? prev : labelIndex))
+        }
+      } else {
+        if (!arrived) setArrived(true)
+        const idleElapsed = elapsed - tourDurationMs
+        const phi = finalLeg.toPhi + idleElapsed * IDLE_DRIFT_RAD_PER_MS
+        globe.update({ phi, theta: finalLeg.toTheta })
+      }
+
       raf = requestAnimationFrame(frame)
     }
 
@@ -174,8 +296,8 @@ export function GlobeWorldTour({
         devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
         width,
         height: width,
-        phi: phiRef.current,
-        theta: thetaRef.current,
+        phi: prefersReducedMotion ? finalLeg!.toPhi : (flightPath[0]?.fromPhi ?? 0),
+        theta: prefersReducedMotion ? finalLeg!.toTheta : (flightPath[0]?.fromTheta ?? 0.2),
         dark: 0,
         diffuse: 1.5,
         mapSamples: 16000,
@@ -185,7 +307,7 @@ export function GlobeWorldTour({
         glowColor: [0.94, 0.93, 0.91],
         markerElevation: 0.02,
         markers,
-        arcs: arcs.map((arc) => ({ from: arc.start, to: arc.end, color: arc.color })),
+        arcs,
         arcWidth: 0.6,
         arcHeight: 0.25,
         opacity: 0.7,
@@ -210,10 +332,16 @@ export function GlobeWorldTour({
       cancelAnimationFrame(raf)
       if (globe) globe.destroy()
     }
-  }, [markers, arcs, prefersReducedMotion])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markers, arcs, flightPath, finalLeg, tourDurationMs, prefersReducedMotion])
 
   return (
-    <div className={`relative aspect-square select-none ${className}`}>
+    <motion.div
+      className={`relative select-none ${className}`}
+      initial={{ scale: 1 }}
+      animate={{ scale: arrived ? 1.06 : 1 }}
+      transition={{ duration: 0.65, ease: "easeOut" }}
+    >
       <canvas
         ref={canvasRef}
         style={{
@@ -227,29 +355,13 @@ export function GlobeWorldTour({
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
         <div
           className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium shadow-md transition-colors duration-500 ${
-            isDestination ? "bg-red-600 text-white" : "bg-black/85 text-white"
+            isDestinationLabel ? "bg-red-600 text-white" : "bg-black/85 text-white"
           }`}
         >
           <span className="text-base leading-none">{currentStop.flag}</span>
-          <span>{isDestination ? `${currentStop.name} — final destination` : currentStop.name}</span>
+          <span>{isDestinationLabel ? `${currentStop.name} — final destination` : currentStop.name}</span>
         </div>
       </div>
-      {!prefersReducedMotion && (
-        <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center gap-1.5">
-          {itinerary.map((stop, i) => (
-            <span
-              key={stop.id}
-              className={`h-1.5 rounded-full transition-all duration-500 ${
-                i === stepIndex % itinerary.length
-                  ? stop.id === destination.id
-                    ? "w-4 bg-red-600"
-                    : "w-4 bg-black"
-                  : "w-1.5 bg-black/20"
-              }`}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    </motion.div>
   )
 }
