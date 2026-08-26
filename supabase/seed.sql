@@ -2,7 +2,8 @@
 -- content exists. Safe to run repeatedly (upserts on slug). Not part of
 -- the schema migration on purpose — this is demo data, not structure.
 --
--- Run after 0001_init.sql, e.g.:
+-- Run after 0001_init.sql and 0002_mercadopago_and_exchange_rates.sql,
+-- e.g.:
 --   supabase db execute -f supabase/seed.sql
 -- or paste into the Supabase SQL editor.
 --
@@ -10,6 +11,14 @@
 -- site (so you can log into /admin), run:
 --   insert into public.admins (user_id)
 --   values ('<uuid from auth.users for your account>');
+
+-- Seed an initial exchange rate so non-Peruvian buyers can check out for
+-- paid events immediately in local dev, before the daily BCRP cron has
+-- ever run (see src/app/api/cron/exchange-rate/route.ts). Real deployments
+-- get this from the cron job instead — this row is purely a local-dev
+-- convenience, not a value to trust.
+insert into public.exchange_rates (rate, source)
+values (3.75, 'manual_override');
 
 insert into public.events
   (slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category)
