@@ -112,7 +112,7 @@ export function EventForm({
       {type === "paid" && (
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <Label htmlFor="pricePen">Price (PEN)</Label>
+            <Label htmlFor="pricePen">Price (PEN) — charged to Peruvian buyers</Label>
             <Input
               id="pricePen"
               name="pricePen"
@@ -124,7 +124,7 @@ export function EventForm({
             />
           </div>
           <div>
-            <Label htmlFor="priceUsd">Price (USD)</Label>
+            <Label htmlFor="priceUsd">Price (USD) — display only, exchange students</Label>
             <Input
               id="priceUsd"
               name="priceUsd"
@@ -134,6 +134,12 @@ export function EventForm({
               defaultValue={event?.price_usd ?? undefined}
               required
             />
+            <p className="mt-1 text-xs text-ink/45">
+              Shown as the headline price to non-Peruvian buyers. Mercado Pago can only
+              charge soles, so at checkout this is converted to PEN at the current
+              exchange rate (see the Exchange rate panel below) — never charged in USD
+              directly.
+            </p>
           </div>
         </div>
       )}

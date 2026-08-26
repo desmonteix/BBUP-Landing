@@ -8,7 +8,8 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
  * build error if that happens). Used for:
  *  - inserting anonymous free RSVPs (no authenticated session to satisfy RLS)
  *  - inserting/updating ticket registrations after server-side validation
- *  - the Culqi webhook (no user session present)
+ *  - the Mercado Pago webhook (no user session present)
+ *  - the daily BCRP exchange-rate cron job
  *  - admin panel reads/writes after an explicit `isAdmin()` check
  *
  * Every call site MUST perform its own authorization check before using

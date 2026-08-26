@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { isCurrentUserAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { eventFormSchema } from "@/lib/validation/schemas";
+import { recordExchangeRate } from "@/lib/exchangeRate";
 
 export type AdminFormState = {
   status: "idle" | "error";
@@ -130,4 +131,38 @@ export async function toggleEventStatus(eventId: string, nextStatus: "open" | "c
   await admin.from("events").update({ status: nextStatus }).eq("id", eventId);
   revalidatePath("/admin");
   revalidatePath("/events");
+}
+
+export type ExchangeRateFormState = {
+  status: "idle" | "error";
+  message?: string;
+};
+
+/**
+ * Manual fallback for the daily BCRP cron (spec §5, §11) — an organizer can
+ * set today's USD -> PEN rate by hand if the automated job is down for an
+ * extended period. Inserts a new `source='manual_override'` row rather
+ * than mutating one in place, same append-only pattern the cron job uses,
+ * so it still shows up correctly in any receipt's audit trail.
+ */
+export async function setManualExchangeRate(
+  _prev: ExchangeRateFormState,
+  formData: FormData
+): Promise<ExchangeRateFormState> {
+  await assertAdmin();
+
+  const raw = formData.get("rate");
+  const rate = typeof raw === "string" ? Number(raw) : NaN;
+
+  if (!Number.isFinite(rate) || rate <= 0) {
+    return { status: "error", message: "Enter a positive number, e.g. 3.75." };
+  }
+
+  const result = await recordExchangeRate(rate, "manual_override");
+  if (!result.ok) {
+    return { status: "error", message: result.error };
+  }
+
+  revalidatePath("/admin");
+  return { status: "idle", message: "Exchange rate updated." };
 }

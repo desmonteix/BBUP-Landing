@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatEventDate } from "@/lib/utils";
+import { getCurrentExchangeRate, isExchangeRateStale } from "@/lib/exchangeRate";
 import { CategoryBadge } from "@/components/events/CategoryBadge";
+import { ExchangeRatePanel } from "@/components/admin/ExchangeRatePanel";
 import { Badge } from "@/components/ui/Badge";
 import type { EventRow } from "@/lib/types";
 
@@ -11,15 +13,17 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const admin = createAdminClient();
-  const { data: events } = await admin
-    .from("events")
-    .select("id, slug, title, event_date, type, status, category, capacity")
-    .order("event_date", { ascending: false });
-
-  const { data: regCounts } = await admin
-    .from("registrations")
-    .select("event_id")
-    .in("payment_status", ["n/a", "pending", "paid"]);
+  const [{ data: events }, { data: regCounts }, currentRate] = await Promise.all([
+    admin
+      .from("events")
+      .select("id, slug, title, event_date, type, status, category, capacity")
+      .order("event_date", { ascending: false }),
+    admin
+      .from("registrations")
+      .select("event_id")
+      .in("payment_status", ["n/a", "pending", "paid"]),
+    getCurrentExchangeRate(),
+  ]);
 
   const counts = new Map<string, number>();
   for (const r of regCounts ?? []) {
@@ -28,7 +32,12 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <ExchangeRatePanel
+        currentRate={currentRate}
+        isStale={currentRate ? isExchangeRateStale(currentRate) : false}
+      />
+
+      <div className="mt-10 flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-ink">Events</h1>
         <Link
           href="/admin/events/new"

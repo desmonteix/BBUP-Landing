@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/Badge";
-import { formatMoney } from "@/lib/pricing";
+import { formatMoney } from "@/lib/money";
 import type { AdminRegistrantRow } from "@/lib/types";
 
 export function RegistrantsTable({ registrants }: { registrants: AdminRegistrantRow[] }) {
@@ -13,7 +13,7 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
 
   return (
     <div className="overflow-x-auto rounded-md border border-border bg-white shadow-sm">
-      <table className="w-full min-w-[760px] text-left text-sm">
+      <table className="w-full min-w-[860px] text-left text-sm">
         <thead className="border-b border-border bg-paper-sunk text-xs uppercase tracking-wide text-ink/50">
           <tr>
             <th className="px-4 py-3 font-semibold">Name</th>
@@ -21,7 +21,8 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
             <th className="px-4 py-3 font-semibold">Phone</th>
             <th className="px-4 py-3 font-semibold">Nationality</th>
             <th className="px-4 py-3 font-semibold">Kind</th>
-            <th className="px-4 py-3 font-semibold">Amount</th>
+            <th className="px-4 py-3 font-semibold">PEN charged</th>
+            <th className="px-4 py-3 font-semibold">USD reference</th>
             <th className="px-4 py-3 font-semibold">Payment</th>
           </tr>
         </thead>
@@ -34,7 +35,21 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
               <td className="px-4 py-3 text-ink/65">{r.nationality ?? "—"}</td>
               <td className="px-4 py-3 text-ink/65 capitalize">{r.kind}</td>
               <td className="px-4 py-3 text-ink/65">
-                {r.amount && r.currency ? formatMoney(r.amount, r.currency) : "—"}
+                {r.amount_pen != null ? formatMoney(r.amount_pen, "PEN") : "—"}
+              </td>
+              <td className="px-4 py-3 text-ink/65">
+                {r.display_price_usd != null ? (
+                  <>
+                    {formatMoney(r.display_price_usd, "USD")}
+                    {r.exchange_rate_applied != null && (
+                      <span className="block text-xs text-ink/40">
+                        at {r.exchange_rate_applied.toFixed(3)}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  "—"
+                )}
               </td>
               <td className="px-4 py-3">
                 <Badge

@@ -58,12 +58,23 @@ export async function sendTicketReceipt(params: {
   eventTitle: string;
   eventDate: string;
   location: string;
-  amount: number;
-  currency: "PEN" | "USD";
-  chargeId: string;
+  /** What Mercado Pago actually charged — always PEN (spec §3/§4). */
+  amountPen: number;
+  /** Set only for exchange-student tickets: the USD figure they were
+   * shown before conversion, kept here purely so the receipt's math is
+   * legible even though PEN is what was charged. */
+  displayPriceUsd: number | null;
+  /** The USD -> PEN rate used at charge time, for the same reason. */
+  exchangeRateApplied: number | null;
+  paymentId: string;
 }) {
   const resend = getResendClient();
   if (!resend) return;
+
+  const usdLine =
+    params.displayPriceUsd != null && params.exchangeRateApplied != null
+      ? `<tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Reference price</td><td>${formatMoney(params.displayPriceUsd, "USD")} at S/ ${params.exchangeRateApplied.toFixed(3)} per US$</td></tr>`
+      : "";
 
   try {
     await resend.emails.send({
@@ -77,8 +88,9 @@ export async function sendTicketReceipt(params: {
           <table style="margin-top:16px; font-size:14px; color:#241A2E;">
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Date</td><td>${formatEventDate(params.eventDate)} · ${formatEventTime(params.eventDate)}</td></tr>
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Location</td><td>${escapeHtml(params.location)}</td></tr>
-            <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Amount paid</td><td>${formatMoney(params.amount, params.currency)}</td></tr>
-            <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Receipt ID</td><td>${escapeHtml(params.chargeId)}</td></tr>
+            <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Amount charged</td><td>${formatMoney(params.amountPen, "PEN")}</td></tr>
+            ${usdLine}
+            <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Payment ID</td><td>${escapeHtml(params.paymentId)}</td></tr>
           </table>
           <p style="margin-top:24px; color:#666;">— Best Buddy UP!</p>
         </div>
