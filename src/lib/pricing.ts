@@ -1,6 +1,8 @@
 import "server-only";
 import type { Nationality, ResolvedPrice } from "@/lib/types";
 
+export { toCulqiAmount, formatMoney } from "@/lib/money";
+
 /**
  * Nationality-gated pricing (spec §5, §8). This is the ONLY place the
  * PEN/USD split decision is made. Server-only by construction (imports
@@ -21,17 +23,4 @@ export function resolvePriceForNationality(
   }
 
   return { amount: event.price_usd, currency: "USD" };
-}
-
-/** Culqi expects integer amounts in the currency's smallest unit (cents). */
-export function toCulqiAmount(amount: number): number {
-  return Math.round(amount * 100);
-}
-
-export function formatMoney(amount: number, currency: "PEN" | "USD"): string {
-  const symbol = currency === "PEN" ? "S/" : "$";
-  return `${symbol} ${amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }

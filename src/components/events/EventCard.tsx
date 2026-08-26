@@ -2,7 +2,7 @@ import Image from "next/image";
 import { CalendarDays, MapPin, Users } from "lucide-react";
 import type { PublicEvent } from "@/lib/types";
 import { formatEventDate } from "@/lib/utils";
-import { formatMoney } from "@/lib/pricing";
+import { formatMoney } from "@/lib/money";
 import { Badge } from "@/components/ui/Badge";
 import { CategoryBadge } from "@/components/events/CategoryBadge";
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
-import { formatMoney } from "@/lib/pricing";
+import { formatMoney } from "@/lib/money";
 
 declare global {
   interface Window {

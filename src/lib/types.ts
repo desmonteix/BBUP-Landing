@@ -12,6 +12,9 @@
  * exposes both `price_pen` and `price_usd` to a client-facing response.
  */
 
+import type { CommitteeKey } from "@/lib/committees";
+export type EventCategory = CommitteeKey;
+
 export type Nationality =
   | "Peruvian"
   | "Argentine"
@@ -63,7 +66,6 @@ export interface Profile {
 
 export type EventType = "free" | "paid";
 export type EventStatus = "open" | "closed";
-export type { CommitteeKey as EventCategory } from "@/lib/committees";
 
 /** Full row shape — server-only (admin panel, DB access layer). Never send
  * this whole object to a non-admin client for a paid event. */

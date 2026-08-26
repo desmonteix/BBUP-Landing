@@ -16,8 +16,7 @@ const PUBLIC_COLUMNS =
  * into the returned object.
  */
 export async function listEvents(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any>,
+  supabase: SupabaseClient,
   opts: { when: "upcoming" | "past"; viewerNationality: Nationality | null }
 ): Promise<PublicEvent[]> {
   const nowIso = new Date().toISOString();
@@ -42,8 +41,7 @@ export async function listEvents(
 }
 
 export async function getEventRowBySlug(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any>,
+  supabase: SupabaseClient,
   slug: string
 ): Promise<EventRow | null> {
   const { data, error } = await supabase
@@ -62,8 +60,7 @@ export async function getEventRowBySlug(
 }
 
 export async function getEventRowById(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any>,
+  supabase: SupabaseClient,
   id: string
 ): Promise<EventRow | null> {
   const { data, error } = await supabase
@@ -116,8 +113,7 @@ export function toPublicEvent(
 }
 
 async function attachSpotsRemaining(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any>,
+  supabase: SupabaseClient,
   rows: EventRow[]
 ): Promise<(EventRow & { registration_count: number })[]> {
   const eventsWithCapacity = rows.filter((r) => r.capacity != null);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, LogIn } from "lucide-react";
 import { createTicketIntent } from "@/lib/actions/registrations";
 import { CulqiCheckoutButton } from "@/components/events/CulqiCheckoutButton";
-import { formatMoney } from "@/lib/pricing";
+import { formatMoney } from "@/lib/money";
 import type { ResolvedPrice } from "@/lib/types";
 
 type Intent =
