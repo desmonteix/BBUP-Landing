@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { TEAM } from "@/lib/content";
 import { COMMITTEE_KEYS, COMMITTEES } from "@/lib/committees";
-import { Reveal, staggerDelay } from "@/components/ui/Reveal";
+import { Reveal } from "@/components/ui/Reveal";
+import { staggerDelay } from "@/lib/utils";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Container } from "@/components/ui/Container";
 

@@ -1,5 +1,6 @@
 import { VALUES } from "@/lib/content";
-import { Reveal, staggerDelay } from "@/components/ui/Reveal";
+import { Reveal } from "@/components/ui/Reveal";
+import { staggerDelay } from "@/lib/utils";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Container } from "@/components/ui/Container";
 

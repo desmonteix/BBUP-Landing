@@ -5,7 +5,8 @@ import { ChevronDown } from "lucide-react";
 import type { PublicEvent } from "@/lib/types";
 import { EventCard } from "@/components/events/EventCard";
 import { EventModal } from "@/components/events/EventModal";
-import { Reveal, staggerDelay } from "@/components/ui/Reveal";
+import { Reveal } from "@/components/ui/Reveal";
+import { staggerDelay } from "@/lib/utils";
 
 export function EventsExplorer({
   upcoming,

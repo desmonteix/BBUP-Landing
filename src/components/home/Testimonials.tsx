@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { Quote } from "lucide-react";
 import type { Testimonial } from "@/lib/types";
-import { Reveal, staggerDelay } from "@/components/ui/Reveal";
+import { Reveal } from "@/components/ui/Reveal";
+import { staggerDelay } from "@/lib/utils";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Container } from "@/components/ui/Container";
 import { CrossingPaths } from "@/components/ui/CrossingPaths";

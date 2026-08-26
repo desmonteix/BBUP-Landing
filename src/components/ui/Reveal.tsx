@@ -46,8 +46,3 @@ export function Reveal({
   );
 }
 
-/** Wrap a card grid; children apply `Reveal` themselves with a computed
- * index-based delay via `staggerDelay`. */
-export function staggerDelay(index: number, step = 0.08, max = 0.4) {
-  return Math.min(index * step, max);
-}
