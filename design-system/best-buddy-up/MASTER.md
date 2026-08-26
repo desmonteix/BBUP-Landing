@@ -110,16 +110,24 @@ problem the generic pattern would have produced).
 
 ---
 
-## Signature element: "Crossing Paths"
+## Signature elements: globe (primary) + "Crossing Paths" (secondary)
 
-Two thin gradient strokes (one pink-anchored, one blue-anchored) that cross like two people's
-routes meeting, used as the section divider between every major block on Home/About, as the
-underline for stat counters (styled like a passport-stamp ring, not a plain progress bar),
-and as the corner accent on the active/selected event card. Implemented as inline SVG
-(`components/ui/CrossingPaths.tsx`), animated with a slow stroke-draw on first viewport entry
-(`transform`/`opacity`/`stroke-dashoffset` only), static when `prefers-reduced-motion` is set.
-This is the one element the site is built around — deliberately not a generic wavy-blob
-divider, which is what a default pass would have produced.
+**Globe (added 2026-08-26, primary signature — first thing a visitor sees).** A rotating
+`cobe` (canvas/WebGL) globe on the Home hero that auto-tours a handful of countries exchange
+students come from and always lands on, and lingers longest on, Peru — highlighted red.
+`src/components/ui/cobe-globe-world-tour.tsx`, wired into `components/home/Hero.tsx` above/
+beside the headline. This is a literal visualization of the org's mission (the world,
+converging on Peru), not a decorative stock photo — it's the strongest possible answer to
+"looks AI-made," because no template has this. Under `prefers-reduced-motion` the touring
+loop stops entirely and the camera snaps straight to Peru and stays there (see the component's
+own doc comment for the exact mechanism) rather than continuously animating.
+
+**Crossing Paths (secondary — section dividers).** Two thin gradient strokes (one
+pink-anchored, one blue-anchored) that cross like two people's routes meeting, used as the
+divider between major blocks on Home/About, as the underline for stat counters (styled like a
+passport-stamp ring, not a plain progress bar), and as the corner accent on the active/
+selected event card. Implemented as inline SVG (`components/ui/CrossingPaths.tsx`), animated
+with a slow stroke-draw on first viewport entry, static under `prefers-reduced-motion`.
 
 ## Committee palette (added 2026-08-25, spec §6)
 
@@ -130,6 +138,56 @@ palette above so the site doesn't read as a rainbow. See `committees.ts` for the
 tint/text/solid values and the accessibility reasoning (several source hues — Sports cyan,
 Trips yellow, Merch orange — needed a darkened `text` variant to pass 4.5:1 on their `tint`
 background).
+
+## Redesign pass (2026-08-26): fixing the "looks AI-made" feeling
+
+The user flagged the site as reading generic/AI-made and asked for a `ui-ux-pro-max`-informed
+pass across the whole frontend, not just Home. Re-ran the tool's style/motion/UX guidance
+(query: "Vibrant & Block-based" style lookup + motion guidelines) and made deliberate
+keep/change calls rather than accepting its defaults wholesale:
+
+- **Kept typography as-is.** Fredoka + Plus Jakarta Sans, already chosen in the first pass,
+  independently matches what `ui-ux-pro-max`'s own font-pairing data recommends for this
+  product type ("Playful Creative"). The generic feeling was never a font problem — confirmed
+  by re-checking rather than assumed.
+- **Kept the real brand palette, rejected the tool's auto-generated one.** `--design-system`
+  proposes a generic rose/blue pairing tuned for a from-scratch project with no existing brand.
+  We have a real logo and 9 real committee colors (spec §6) — swapping those for a generic
+  suggestion would have made the site *more* generic, not less. Used the tool for its
+  style/motion/UX guidance instead of its color defaults.
+- **Pulled from "Vibrant & Block-based" selectively**: generous section spacing, large display
+  type (already 40–64px in our type scale, no change needed), and *confident* hover states
+  (color shift, not just a shadow bump) — while staying restrained, not maximalist. We are
+  explicitly not doing Memphis/Claymorphism; that would read as playful-but-cheap rather than
+  warm-but-premium (spec §6).
+- **Motion tightened** (`components/ui/Reveal.tsx`, `lib/utils.ts#staggerDelay`): scroll
+  reveals were 20px/600ms — now 12px default/350ms, `ease-out`, still trigger-once. Card-grid
+  stagger was 0.08s/item (sluggish on longer grids like the team section) — now 0.03s/item,
+  capped at 0.3s total. Both were the generic-slide-in tell mentioned above; this is Framer
+  Motion only, no GSAP added as a second animation library. Added a word-level stagger reveal
+  on the Home headline (`Hero.tsx`) using plain `motion.span` + `staggerChildren` — no plugin.
+- **Confidence pass across card patterns**: `WhoWeAre` fact cards, `ValuesSection` value cards,
+  and `Testimonials` quote cards now share one hover language — lift + border tint toward pink
+  + shadow bump, 200ms — instead of some cards having no hover treatment at all (previously
+  only the interactive `EventCard` had a real hover state). `EventCard`'s title now shifts to
+  pink on hover alongside the existing lift/shadow, for the "color shift" `ui-ux-pro-max`
+  calls for. `AuthShell` (signup/login/admin-login) got the same contained gradient-blob accent
+  the Hero already used, instead of a flat white card on a flat background.
+- **Checked, not just assumed**: swept every `<button>` in the codebase for `cursor-pointer`
+  (all had it already — the shared `Button.tsx` bakes it in) and re-verified the committee
+  badge contrast math in `committees.ts` still holds.
+
+## Motion parameters (current, post-redesign-pass)
+
+| What | Value |
+|---|---|
+| Scroll-reveal offset | 12px (`Reveal.tsx` default `y`) |
+| Scroll-reveal duration | 350ms, `ease-out` |
+| Scroll-reveal trigger | once per element (`viewport={{ once: true }}`), never re-fires |
+| Card-grid stagger | 0.03s/item, capped at 0.3s total (`staggerDelay`) |
+| Hover transitions | 200ms, `transform`/`opacity`/`border-color` only |
+| Hero headline reveal | word-level stagger, 0.05s/word, 12px rise, 350ms each |
+| Globe camera easing | lerp factor 0.04/frame (normal) → instant snap (reduced motion) |
 
 ## Anti-patterns discarded for this build
 
