@@ -25,6 +25,9 @@ next-env.d.ts
 # vercel
 .vercel
 
+# supabase CLI local state
+supabase/.temp
+
 # editor
 .vscode/*
 !.vscode/extensions.json
