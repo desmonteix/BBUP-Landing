@@ -44,6 +44,11 @@ create policy "exchange_rates: admin write"
 -- ---------------------------------------------------------------------------
 -- registrations: Culqi columns -> Mercado Pago columns
 -- ---------------------------------------------------------------------------
+-- Must drop first: it depends on the currency/amount/culqi_charge_id
+-- columns being replaced below, and Postgres won't drop a column a view
+-- still depends on. Recreated with the new columns further down.
+drop view if exists public.admin_registrants;
+
 alter table public.registrations
   drop constraint if exists tickets_have_currency_amount;
 
@@ -72,12 +77,8 @@ create unique index if not exists registrations_mercadopago_payment_id_uidx
   on public.registrations (mercadopago_payment_id)
   where mercadopago_payment_id is not null;
 
--- admin_registrants view references registrations.* by name via `select *`
--- through the underlying columns, so it picks up the new columns
--- automatically — but views in Postgres freeze their column list at
--- creation time, so it still needs an explicit recreate.
-drop view if exists public.admin_registrants;
-
+-- Recreate against the new column set (already dropped above, before the
+-- column changes, since Postgres won't drop a column a view depends on).
 create view public.admin_registrants as
   select
     r.id,

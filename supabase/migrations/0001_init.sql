@@ -34,6 +34,23 @@ create policy "profiles: self update"
   using (auth.uid() = id);
 
 -- ---------------------------------------------------------------------------
+-- admins: organizer allow-list, separate from attendee `profiles`. Created
+-- before events/registrations because their RLS policies reference it.
+-- Seed manually after creating an organizer's Supabase Auth user, e.g.:
+--   insert into public.admins (user_id) values ('<uuid-of-organizer-auth-user>');
+-- ---------------------------------------------------------------------------
+create table if not exists public.admins (
+  user_id     uuid primary key references auth.users (id) on delete cascade,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.admins enable row level security;
+
+create policy "admins: self select"
+  on public.admins for select
+  using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
 -- events
 -- ---------------------------------------------------------------------------
 create table if not exists public.events (
@@ -119,22 +136,6 @@ create policy "registrations: admin all"
   on public.registrations for all
   using (exists (select 1 from public.admins a where a.user_id = auth.uid()))
   with check (exists (select 1 from public.admins a where a.user_id = auth.uid()));
-
--- ---------------------------------------------------------------------------
--- admins: organizer allow-list, separate from attendee `profiles`.
--- Seed manually after creating an organizer's Supabase Auth user, e.g.:
---   insert into public.admins (user_id) values ('<uuid-of-organizer-auth-user>');
--- ---------------------------------------------------------------------------
-create table if not exists public.admins (
-  user_id     uuid primary key references auth.users (id) on delete cascade,
-  created_at  timestamptz not null default now()
-);
-
-alter table public.admins enable row level security;
-
-create policy "admins: self select"
-  on public.admins for select
-  using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
 -- newsletter_subscribers
