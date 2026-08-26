@@ -12,10 +12,13 @@ students into Peruvian culture. The website needs to:
   the wider community.
 - List events (free and paid) and let people register or buy tickets directly
   on the site.
+- Charge Peruvian buyers and exchange-student buyers different prices per
+  paid event, in their respective currency, without either group seeing the
+  other's price (see §5).
 - Let organizers manage events and see who registered, without touching code.
 - Feel warm, premium, and elegant — with animations that stay smooth on any
   device.
-- Be entirely in Spanish.
+- Be entirely in English.
 
 Inspiration reference: [ebnwu.com](https://www.ebnwu.com/) (Erasmus Buddy
 Network, WU Vienna) — informal warm hero greeting, a short "who we are" blurb
@@ -29,10 +32,15 @@ Out of scope for this build (can be revisited later):
 
 - Applications or matching for "become a buddy" / "apply as exchange student"
   — this site is informational + event ticketing only.
-- User accounts / login for attendees (only organizers log in, via `/admin`).
-- Multi-language toggle (Spanish only, by explicit instruction).
+- Identity verification of DNI/nationality (self-declared at signup, honor
+  system — see §5 and §8).
+- Multi-language toggle (English only, per §1).
 - Blog/CMS.
 - Newsletter *sending* (campaigns) — only capturing emails, see §7.
+
+Note: attendee accounts *are* in scope (needed for nationality-based pricing
+— see §5), which supersedes the earlier draft's "no attendee accounts"
+non-goal.
 
 ## 3. Architecture
 
@@ -41,19 +49,21 @@ service. One codebase serves the public site, the admin panel, and the
 backend (API routes / Server Actions).
 
 - **Frontend + backend:** Next.js (App Router), TypeScript.
-- **Database + auth:** Supabase (Postgres + Supabase Auth for the small
-  number of organizer admin accounts).
+- **Database + auth:** Supabase (Postgres + Supabase Auth for two distinct
+  populations: attendee accounts, and a small organizer allow-list for
+  `/admin` — see §4).
 - **Hosting:** Vercel.
 - **Payments:** Culqi (Peru-native gateway).
   - No monthly/maintenance fee, free signup.
   - Public REST API with docs + sandbox: https://apidocs.culqi.com/
   - Domestic cards / Yape / Plin: ~3.44% + IGV. International cards:
     ~3.99% + IGV.
-  - Culqi settles in PEN or USD only (no direct EUR/GBP). Tickets are priced
-    in **USD**; international cards (any currency) work automatically
-    because the *card network / issuing bank* — not Culqi — converts the
-    student's home currency to USD at charge time. Same mechanism Airbnb/
-    Netflix rely on. Culqi's own conversion claims apply to PEN↔USD only.
+  - Culqi settles in PEN or USD only (no direct EUR/GBP). Exchange-student
+    buyers are charged in **USD**; international cards (any home currency)
+    work automatically because the *card network / issuing bank* — not
+    Culqi — converts the student's home currency to USD at charge time.
+    Same mechanism Airbnb/Netflix rely on. Peruvian buyers are charged in
+    **PEN** (see §5 for how the currency/price is selected per buyer).
   - Integration uses Culqi's hosted Checkout widget so card data never
     touches our server (minimizes PCI scope).
 - **Transactional email:** Resend (free tier) for RSVP/ticket confirmations.
@@ -63,6 +73,17 @@ backend (API routes / Server Actions).
 ## 4. Data model (Supabase / Postgres)
 
 ```
+profiles
+  id            uuid pk (fk -> auth.users.id)
+  first_name    text
+  last_name     text
+  dni_id        text            -- national ID / passport number: stored as
+                                 -- a profile field only, NEVER used as a
+                                 -- credential (see §8, Security notes)
+  nationality   text
+  email         text
+  created_at    timestamptz
+
 events
   id            uuid pk
   slug          text unique
@@ -72,6 +93,7 @@ events
   event_date    timestamptz
   location      text
   type          enum('free', 'paid')
+  price_pen     numeric, nullable (required if type = 'paid')
   price_usd     numeric, nullable (required if type = 'paid')
   capacity      integer, nullable (null = unlimited)
   status        enum('open', 'closed')
@@ -80,17 +102,22 @@ events
 registrations
   id                uuid pk
   event_id          uuid fk -> events
+  profile_id        uuid fk -> profiles, nullable
+                     -- set for paid tickets (account required); null for
+                     -- anonymous free RSVPs (no account required)
   name              text
   email             text
   phone             text, nullable
   kind              enum('rsvp', 'ticket')   -- rsvp = free, ticket = paid
+  currency          enum('PEN', 'USD'), nullable   -- set for tickets
+  amount            numeric, nullable              -- set for tickets
   payment_status    enum('n/a', 'pending', 'paid', 'failed')
   culqi_charge_id   text, nullable
   created_at        timestamptz
 
 admins
-  -- backed by Supabase Auth users; a table (or just Auth metadata) marking
-  -- which auth users are allowed into /admin
+  -- backed by Supabase Auth users; a separate allow-list from `profiles`,
+  -- marking which auth users may access /admin (organizers, not attendees)
 
 newsletter_subscribers
   id            uuid pk
@@ -100,35 +127,55 @@ newsletter_subscribers
 
 ## 5. Pages & user flows
 
-- **Home (`/`)** — hero (animated logo/gradient treatment, warm Spanish
-  greeting in the spirit of EBN WU's "Servus 👋", mission statement), quick
-  "Quiénes somos" blurb linking to the full About page, teaser of the next
-  upcoming event, featured testimonial quotes, newsletter signup block.
-- **Nosotros (`/nosotros`)** — full mission/story, values, team grid (photo +
+- **Home (`/`)** — hero (animated logo/gradient treatment, warm greeting in
+  the spirit of EBN WU's "Servus 👋", mission statement), short "Who we are"
+  blurb linking to the full About page, teaser of the next upcoming event,
+  featured testimonial quotes, newsletter signup block.
+- **About Us (`/about`)** — full mission/story, values, team grid (photo +
   name + role), fuller set of testimonial quote cards.
-- **Eventos (`/eventos`)** — grid of upcoming events (free badge or USD price
-  shown on each card) and a separate/collapsed section for past events.
-  Clicking a card opens the **event detail in-page** (modal / expandable
-  panel) — **not** a separate route per event. The detail view shows the full
-  description, date, location, and:
-  - **Free event:** short RSVP form (name, email, phone optional) → on
-    submit, writes a `registrations` row (`kind='rsvp'`), shows an in-page
-    confirmation, and triggers a confirmation email via Resend.
-  - **Paid event:** same form collects name/email/phone, then redirects into
-    Culqi's hosted Checkout for the event's USD price → on success, a
-    webhook marks the `registrations` row `payment_status='paid'` and stores
+- **Events (`/events`)** — grid of upcoming events (free badge, or "from
+  S/ X / $Y" shown only where price-safe — see pricing rule below) and a
+  separate/collapsed section for past events. Clicking a card opens the
+  **event detail in-page** (modal / expandable panel) — **not** a separate
+  route per event. The detail view shows the full description, date,
+  location, and:
+  - **Free event:** short RSVP form (name, email, phone optional), no
+    account required → on submit, writes a `registrations` row
+    (`kind='rsvp'`), shows an in-page confirmation, and triggers a
+    confirmation email via Resend.
+  - **Paid event — nationality-gated pricing:** requires an account (see
+    "Attendee accounts" below). Once logged in, the **server** resolves the
+    buyer's price using their profile's `nationality`:
+    - `nationality == 'Peruvian'` → price is `events.price_pen`, charged in
+      PEN.
+    - any other nationality → price is `events.price_usd`, charged in USD.
+
+    Only the resolved price/currency for the logged-in buyer is ever sent to
+    the browser — the other price is never included in the page's HTML, API
+    response, or client-side bundle, so it can't be seen via dev tools
+    either. Checkout proceeds into Culqi's hosted Checkout for that
+    price/currency → on success, a webhook marks the `registrations` row
+    `payment_status='paid'`, sets `currency`/`amount`, and stores
     `culqi_charge_id` → confirmation/receipt email via Resend. On failure,
-    the row stays `failed`/`pending` and the user sees a retry option.
-- **Galería** — responsive photo grid/lightbox, section reachable from nav,
-  images from past events (see §7 asset checklist).
-- **Testimonios** — no dedicated page/route; lives as sections within Home
-  (short, featured) and Nosotros (fuller set).
+    the row stays `pending`/`failed` and the buyer sees a retry option.
+- **Attendee accounts (`/signup`, `/login`)** — email + password (Supabase
+  Auth). Signup collects: first name, last name, DNI/ID, nationality, email,
+  password. Nationality is set at signup and used for all future paid-ticket
+  pricing; editable later from a profile page if the buyer needs to correct
+  it. Accounts exist solely to support nationality-based ticket pricing —
+  not for buddy applications/matching (still out of scope, §2).
+- **Gallery (`/gallery`)** — responsive photo grid/lightbox, reachable from
+  nav, images from past events (see §7 asset checklist).
+- **Testimonials** — no dedicated page/route; lives as sections within Home
+  (short, featured) and About Us (fuller set).
 - **Footer** (site-wide) — contact info, Instagram/TikTok/WhatsApp links,
   newsletter signup (if not already on Home).
-- **Admin (`/admin`)** — Supabase-Auth-gated login. Event list with
-  create/edit (title, description, date, location, cover image, free/paid +
-  price, capacity, open/closed toggle) and, per event, a registrant table
-  (name, email, phone, payment status).
+- **Admin (`/admin`)** — Supabase-Auth-gated login, restricted to the
+  `admins` allow-list (organizers only, separate from attendee accounts).
+  Event list with create/edit (title, description, date, location, cover
+  image, free/paid + PEN price + USD price, capacity, open/closed toggle)
+  and, per event, a registrant table (name, email, phone, nationality,
+  currency, amount, payment status).
 
 ## 6. Visual design & animation
 
@@ -160,13 +207,13 @@ swapped for real photos later. Recommended shot list:
 | Location | Count | Size | What it should show |
 |---|---|---|---|
 | Home hero | 1 (image or short loop) | 1920×1080 min | Exchange students + Peruvian buddies together, candid, bright |
-| Team (Nosotros) | 1 per team member | ~800×800, square | Consistent headshot style/background |
+| Team (About Us) | 1 per team member | ~800×800, square | Consistent headshot style/background |
 | Event cover | 1 per event | 1200×675 (16:9) | Represents that specific event |
 | Event gallery (per past event) | 3–6 | ~1200px long edge | Candid moments from that event |
-| Galería page | 12–20 to start | ~1200px long edge | Mix of portrait/landscape, group shots, cultural activities |
+| Gallery page | 12–20 to start | ~1200px long edge | Mix of portrait/landscape, group shots, cultural activities |
 | Testimonials | 1 per quoted person (optional) | ~200×200, circular crop | Friendly headshot; quotes work without one too |
 
-## 8. Confirmations & newsletter
+## 8. Confirmations, newsletter & security notes
 
 - Every RSVP or ticket purchase triggers a Resend confirmation email with
   event details (and Culqi receipt info for paid tickets).
@@ -174,6 +221,16 @@ swapped for real photos later. Recommended shot list:
   `newsletter_subscribers`. No campaign-sending tool is included in this
   build — the list is there for the org to use later (e.g. export and send
   manually via Resend broadcasts or another tool).
+- **Security notes (attendee accounts):**
+  - Authentication is standard email + password via Supabase Auth (passwords
+    hashed, never stored in plaintext).
+  - DNI/ID is stored purely as profile data — it is **never** used as a
+    credential. A national ID is not secret (it appears on documents and in
+    other systems), so using it as a password would let anyone who knows or
+    guesses someone's DNI log into their account; this design avoids that.
+  - Nationality-based pricing is self-declared at signup (honor system, no
+    document verification) and resolved server-side per request — the
+    non-applicable price is never transmitted to the browser.
 
 ## 9. Project location & repo
 
