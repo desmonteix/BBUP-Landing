@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { getEventRowById } from "@/lib/db/events";
 import { resolvePriceForNationality } from "@/lib/pricing";
+import { getCurrentExchangeRate } from "@/lib/exchangeRate";
+import { createPaymentPreference, getSiteUrl } from "@/lib/mercadopago";
 import { rsvpSchema, ticketIntentSchema } from "@/lib/validation/schemas";
 import { sendRsvpConfirmation } from "@/lib/resend";
 
@@ -58,8 +60,6 @@ export async function submitRsvp(
     email: parsed.data.email,
     phone: parsed.data.phone ?? null,
     kind: "rsvp",
-    currency: null,
-    amount: null,
     payment_status: "n/a",
   });
 
@@ -83,18 +83,20 @@ export type TicketIntentResult =
   | {
       ok: true;
       registrationId: string;
-      amount: number;
-      currency: "PEN" | "USD";
-      email: string;
-      culqiPublicKey: string;
-      eventTitle: string;
+      chargeAmountPen: number;
+      displayPriceUsd: number | null;
+      exchangeRate: number | null;
+      initPoint: string;
     }
   | { ok: false; error: string };
 
 /**
- * Creates a pending `registrations` row for a paid ticket and returns ONLY
- * the price resolved for the current authenticated buyer (spec §5, §8) —
- * never both price_pen and price_usd. Requires a logged-in profile so the
+ * Creates a pending `registrations` row for a paid ticket, resolves the
+ * buyer's price server-side (spec §5, §8 — PEN always, USD is
+ * display-only, see src/lib/pricing.ts), and opens a Mercado Pago Checkout
+ * Pro preference for the resolved PEN amount. Returns ONLY that buyer's
+ * own resolved price plus the hosted-checkout redirect URL — never the
+ * other nationality's price. Requires a logged-in profile so the
  * nationality lookup has something to resolve against.
  */
 export async function createTicketIntent(
@@ -112,8 +114,17 @@ export async function createTicketIntent(
   if (event.type !== "paid") return { ok: false, error: "This event is free — use the RSVP form." };
   if (event.status !== "open") return { ok: false, error: "Ticket sales are closed for this event." };
 
-  const price = resolvePriceForNationality(profile.nationality, event);
-  if (!price) return { ok: false, error: "Pricing is not available for this event yet." };
+  const currentRate = await getCurrentExchangeRate();
+  const price = resolvePriceForNationality(profile.nationality, event, currentRate?.rate ?? null);
+  if (!price) {
+    return {
+      ok: false,
+      error:
+        profile.nationality === "Peruvian"
+          ? "Pricing is not available for this event yet."
+          : "We couldn't load today's exchange rate — try again shortly.",
+    };
+  }
 
   const admin = createAdminClient();
 
@@ -137,8 +148,9 @@ export async function createTicketIntent(
       email: profile.email,
       phone: null,
       kind: "ticket",
-      currency: price.currency,
-      amount: price.amount,
+      amount_pen: price.chargeAmountPen,
+      display_price_usd: price.displayPriceUsd,
+      exchange_rate_applied: price.exchangeRate,
       payment_status: "pending",
     })
     .select("id")
@@ -149,18 +161,29 @@ export async function createTicketIntent(
     return { ok: false, error: "Something went wrong. Try again in a moment." };
   }
 
-  const culqiPublicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY;
-  if (!culqiPublicKey) {
-    return { ok: false, error: "Payments are not configured yet." };
+  const registrationId = data.id as string;
+
+  const preference = await createPaymentPreference({
+    registrationId,
+    eventTitle: event.title,
+    amountPen: price.chargeAmountPen,
+    payerEmail: profile.email,
+    payerFirstName: profile.first_name,
+    payerLastName: profile.last_name,
+    siteUrl: getSiteUrl(),
+  });
+
+  if (!preference.ok) {
+    await admin.from("registrations").update({ payment_status: "failed" }).eq("id", registrationId);
+    return { ok: false, error: preference.error };
   }
 
   return {
     ok: true,
-    registrationId: data.id as string,
-    amount: price.amount,
-    currency: price.currency,
-    email: profile.email,
-    culqiPublicKey,
-    eventTitle: event.title,
+    registrationId,
+    chargeAmountPen: price.chargeAmountPen,
+    displayPriceUsd: price.displayPriceUsd,
+    exchangeRate: price.exchangeRate,
+    initPoint: preference.initPoint,
   };
 }

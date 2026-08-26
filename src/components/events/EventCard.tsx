@@ -46,7 +46,10 @@ export function EventCard({
             <Badge tone="success">Free</Badge>
           ) : event.resolved_price ? (
             <Badge tone="blue">
-              From {formatMoney(event.resolved_price.amount, event.resolved_price.currency)}
+              From{" "}
+              {event.resolved_price.displayPriceUsd != null
+                ? formatMoney(event.resolved_price.displayPriceUsd, "USD")
+                : formatMoney(event.resolved_price.chargeAmountPen, "PEN")}
             </Badge>
           ) : (
             <Badge tone="neutral">Paid</Badge>

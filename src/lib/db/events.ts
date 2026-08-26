@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EventRow, EventType, Nationality, PublicEvent } from "@/lib/types";
 import { resolvePriceForNationality } from "@/lib/pricing";
+import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 
 const PUBLIC_COLUMNS =
   "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, created_at";
@@ -37,7 +38,18 @@ export async function listEvents(
 
   const withCounts = await attachSpotsRemaining(supabase, rows);
 
-  return withCounts.map((row) => toPublicEvent(row, opts.viewerNationality));
+  // Only fetch the rate when it's actually needed: a non-Peruvian viewer
+  // looking at at least one paid event. Peruvian buyers and anonymous
+  // visitors never trigger a conversion, so no need to pay for the read.
+  const needsRate =
+    opts.viewerNationality != null &&
+    opts.viewerNationality !== "Peruvian" &&
+    rows.some((r) => r.type === "paid");
+  const currentRate = needsRate ? await getCurrentExchangeRate() : null;
+
+  return withCounts.map((row) =>
+    toPublicEvent(row, opts.viewerNationality, currentRate?.rate ?? null)
+  );
 }
 
 export async function getEventRowBySlug(
@@ -85,7 +97,8 @@ export async function getEventRowById(
  */
 export function toPublicEvent(
   row: EventRow & { registration_count?: number },
-  viewerNationality: Nationality | null
+  viewerNationality: Nationality | null,
+  currentExchangeRate: number | null = null
 ): PublicEvent {
   const spotsRemaining =
     row.capacity == null
@@ -107,7 +120,7 @@ export function toPublicEvent(
     category: row.category,
     resolved_price:
       row.type === "paid" && viewerNationality
-        ? resolvePriceForNationality(viewerNationality, row)
+        ? resolvePriceForNationality(viewerNationality, row, currentExchangeRate)
         : null,
   };
 }

@@ -1,15 +1,16 @@
 /**
  * Shared data-model types — single source of truth for the shape of every
  * entity that crosses the client/server boundary. Mirrors
- * `supabase/migrations/0001_init.sql`. Do not redeclare these shapes
- * anywhere else; import from here.
+ * `supabase/migrations/0001_init.sql` + `0002_mercadopago_and_exchange_rates.sql`.
+ * Do not redeclare these shapes anywhere else; import from here.
  *
- * IMPORTANT (pricing safety): `PublicEvent` (sent to the browser for
- * anonymous/unauthenticated viewers) intentionally has NO price fields.
- * `EventWithResolvedPrice` (sent only to an authenticated viewer, computed
- * server-side from their own `profiles.nationality`) carries exactly ONE
- * price/currency pair — never both. Never introduce a type here that
- * exposes both `price_pen` and `price_usd` to a client-facing response.
+ * IMPORTANT (pricing safety): `PublicEvent` (sent to the browser) never
+ * carries both `events.price_pen` and `events.price_usd`. `resolved_price`
+ * is populated server-side from the viewer's OWN nationality and always
+ * charges in PEN (Mercado Pago's Peru Checkout Pro cannot process USD —
+ * see src/lib/pricing.ts) — for non-Peruvian buyers it additionally carries
+ * their USD reference figure and the exchange rate used to convert it, but
+ * never the Peruvian PEN price, and vice versa.
  */
 
 import type { CommitteeKey } from "@/lib/committees";
@@ -107,9 +108,18 @@ export interface PublicEvent {
   resolved_price: ResolvedPrice | null;
 }
 
+/**
+ * What a buyer sees and what actually gets charged. `chargeAmountPen` is
+ * ALWAYS what Mercado Pago will process — Peruvian buyers get it straight
+ * from `events.price_pen`; everyone else gets it converted from
+ * `events.price_usd` at the current `exchange_rates.rate`. `displayPriceUsd`
+ * and `exchangeRate` are null for Peruvian buyers (no conversion happened)
+ * and set for everyone else, purely so the UI/receipt can show "$30 ≈ S/ 112.50".
+ */
 export interface ResolvedPrice {
-  amount: number;
-  currency: "PEN" | "USD";
+  chargeAmountPen: number;
+  displayPriceUsd: number | null;
+  exchangeRate: number | null;
 }
 
 export type RegistrationKind = "rsvp" | "ticket";
@@ -123,11 +133,21 @@ export interface Registration {
   email: string;
   phone: string | null;
   kind: RegistrationKind;
-  currency: "PEN" | "USD" | null;
-  amount: number | null;
+  amount_pen: number | null;
+  display_price_usd: number | null;
+  exchange_rate_applied: number | null;
   payment_status: PaymentStatus;
-  culqi_charge_id: string | null;
+  mercadopago_payment_id: string | null;
   created_at: string;
+}
+
+export type ExchangeRateSource = "bcrp_auto" | "manual_override";
+
+export interface ExchangeRate {
+  id: string;
+  rate: number;
+  source: ExchangeRateSource;
+  updated_at: string;
 }
 
 /** Row shape for the admin registrant table (joins profile for nationality). */

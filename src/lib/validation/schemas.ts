@@ -51,11 +51,6 @@ export const ticketIntentSchema = z.object({
   eventId: z.string().uuid(),
 });
 
-export const culqiChargeSchema = z.object({
-  registrationId: z.string().uuid(),
-  culqiTokenId: z.string().min(1),
-});
-
 export const newsletterSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
 });

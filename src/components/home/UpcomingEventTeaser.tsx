@@ -41,7 +41,10 @@ export async function UpcomingEventTeaser() {
                   <Badge tone="success">Free</Badge>
                 ) : next.resolved_price ? (
                   <Badge tone="blue">
-                    From {formatMoney(next.resolved_price.amount, next.resolved_price.currency)}
+                    From{" "}
+                    {next.resolved_price.displayPriceUsd != null
+                      ? formatMoney(next.resolved_price.displayPriceUsd, "USD")
+                      : formatMoney(next.resolved_price.chargeAmountPen, "PEN")}
                   </Badge>
                 ) : (
                   <Badge tone="neutral">Paid</Badge>
