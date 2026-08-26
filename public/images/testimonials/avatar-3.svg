@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="PHOTO placeholder">
+  <defs>
+    <linearGradient id="g3-200x200" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F2699E" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#7FC3E8" stop-opacity="0.24"/>
+    </linearGradient>
+    <pattern id="dots-g3-200x200" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#F2699E" fill-opacity="0.18"/>
+    </pattern>
+  </defs>
+  <rect width="200" height="200" rx="100" fill="#FBF3F6"/>
+  <rect width="200" height="200" rx="100" fill="url(#g3-200x200)"/>
+  <rect width="200" height="200" rx="100" fill="url(#dots-g3-200x200)"/>
+  <rect x="1" y="1" width="198" height="198" rx="99" fill="none" stroke="#F2699E" stroke-opacity="0.35" stroke-width="2" stroke-dasharray="10 8"/>
+  <g transform="translate(100, 100)" text-anchor="middle" font-family="system-ui, sans-serif">
+    <text y="-4" font-size="14" font-weight="700" fill="#241A2E" fill-opacity="0.55">PHOTO</text>
+    <text y="20" font-size="11" fill="#241A2E" fill-opacity="0.4">3/5</text>
+  </g>
+</svg>
