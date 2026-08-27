@@ -142,7 +142,7 @@ function buildFlightPath(itinerary: TourStop[], tourDurationMs: number): FlightL
 
 /**
  * Signature Home hero visual: a full-bleed globe that makes one continuous
- * ~5-second flight through a handful of countries exchange students come
+ * ~10-second flight through a handful of countries exchange students come
  * from, then lands on and stays parked on Peru (highlighted red) — a
  * literal visualization of the org's mission instead of a stock photo.
  *
@@ -178,7 +178,7 @@ export function GlobeWorldTour({
   stops = defaultStops,
   destination = defaultDestination,
   className = "",
-  tourDurationMs = 5000,
+  tourDurationMs = 10000,
 }: GlobeWorldTourProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const prefersReducedMotion = useReducedMotion()

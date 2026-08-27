@@ -22,10 +22,10 @@ export function WhoWeAre() {
 
           <Reveal delay={0.1}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FactCard title="No applications, just events" body="Show up to a free event, meet people, decide if you want in — that's the whole onboarding." />
+              <FactCard title="No applications, just events" body="Show up to an event, meet people, decide if you want in — that's the whole onboarding." />
               <FactCard title="Every event, a mix of both" body="We never run a Peruvians-only or students-only event. That's the entire point." />
-              <FactCard title="Free monthly meetups" body="Rooftop hangouts, trivia nights, and language exchanges — always free, always open." />
-              <FactCard title="A few paid trips a year" body="Cusco, the coast, the jungle — priced fairly in soles or dollars depending on where you're from." />
+              <FactCard title="Monthly meetups" body="Rooftop hangouts, trivia nights, and language exchanges — always open." />
+              <FactCard title="A few trips a year" body="Huacachina is the big one, plus getaways to the sierra and the selva throughout the year." />
             </div>
           </Reveal>
         </div>

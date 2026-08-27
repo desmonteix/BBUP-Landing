@@ -71,12 +71,8 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
-          <span className="inline-flex items-center rounded-full bg-pink-tint px-4 py-1.5 font-body text-sm font-semibold text-pink">
-            Lima, Peru · student-run since 2019
-          </span>
-
           <motion.h1
-            className="[text-shadow:0_2px_24px_rgba(0,0,0,0.35)] mt-6 flex flex-wrap justify-center gap-x-[0.28em] font-display text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl"
+            className="[text-shadow:0_2px_24px_rgba(0,0,0,0.35)] flex flex-wrap justify-center gap-x-[0.28em] font-display text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl"
             variants={prefersReducedMotion ? undefined : headlineContainer}
             initial={prefersReducedMotion ? undefined : "hidden"}
             animate={prefersReducedMotion ? undefined : "visible"}

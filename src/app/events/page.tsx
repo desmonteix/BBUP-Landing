@@ -9,7 +9,7 @@ import { EventsExplorer } from "@/components/events/EventsExplorer";
 export const metadata: Metadata = {
   title: "Events",
   description:
-    "Free monthly meetups and paid trips for exchange students and Peruvian buddies in Lima.",
+    "Meetups, trips, and parties for exchange students and Peruvian buddies in Lima.",
 };
 
 // Pricing is resolved per-request for the current viewer — never cache
@@ -34,8 +34,8 @@ export default async function EventsPage() {
       <Container>
         <SectionHeading
           eyebrow="What's on"
-          title="Free meetups. A few paid trips. Always mixed."
-          description="Every event below is open to exchange students and Peruvian buddies alike. Paid trips are priced in soles or dollars depending on your profile — sign in to see your price."
+          title="Meetups. Trips. Parties. Always mixed."
+          description="Every event below is open to exchange students and Peruvian buddies alike."
         />
 
         <div className="mt-12">

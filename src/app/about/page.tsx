@@ -37,8 +37,8 @@ export default function AboutPage() {
                   trips.
                 </p>
                 <p>
-                  Seven years later we&rsquo;re a full student organization
-                  with nine committees, dozens of active buddies, and events
+                  Seven years later we&rsquo;re a full student organization,
+                  dozens of active buddies, and events
                   running most weeks of the semester — but the goal hasn&rsquo;t
                   moved an inch: get an exchange student and a Peruvian
                   student in the same room, and let the friendship happen on

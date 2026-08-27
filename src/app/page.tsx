@@ -27,8 +27,8 @@ export default function HomePage() {
                 Don&rsquo;t miss the next one.
               </h2>
               <p className="mx-auto mt-3 max-w-md text-white/90">
-                One email a month with the next event — free meetups and paid
-                trips alike. No spam, unsubscribe anytime.
+                One email a month with the next event. No spam, unsubscribe
+                anytime.
               </p>
               <div className="mx-auto mt-8 max-w-md">
                 <NewsletterForm />
