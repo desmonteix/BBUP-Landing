@@ -57,17 +57,8 @@ function write(relPath, svg) {
   console.log("wrote", path.relative(publicDir, full));
 }
 
-// Home hero — 1920x1080
-write(
-  "hero/home-hero.svg",
-  svgPlaceholder({
-    width: 1920,
-    height: 1080,
-    label: "HOME HERO PLACEHOLDER",
-    sublabel: "Shoot: exchange students + Peruvian buddies together, candid, bright — 1920×1080 min",
-    seed: 0,
-  })
-);
+// Home hero — no longer generated here. A real photo now lives at
+// public/images/hero/home-hero.jpg, used on the About page.
 
 // Team — 800x800, 1 per member (10, spanning all 9 committees)
 const TEAM = [
@@ -118,20 +109,9 @@ EVENTS.forEach((slug, i) => {
   );
 });
 
-// Gallery page — 16 mixed portrait/landscape
-for (let i = 1; i <= 16; i++) {
-  const landscape = i % 3 !== 0;
-  write(
-    `gallery/photo-${String(i).padStart(2, "0")}.svg`,
-    svgPlaceholder({
-      width: landscape ? 1200 : 900,
-      height: landscape ? 800 : 1200,
-      label: "GALLERY PHOTO",
-      sublabel: `Cultural activity / group shot #${i}`,
-      seed: i,
-    })
-  );
-}
+// Gallery page — no longer generated here. 15 real photos now live at
+// public/images/gallery/photo-01.jpg .. photo-15.jpg, replacing the SVG
+// placeholders this used to write.
 
 // Testimonials — 200x200 circular, 5 people
 for (let i = 1; i <= 5; i++) {

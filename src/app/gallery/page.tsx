@@ -9,13 +9,35 @@ export const metadata: Metadata = {
   description: "Candid moments from Best Buddy UP! events — trips, meetups, and everything between.",
 };
 
-const PHOTOS = Array.from({ length: 16 }, (_, i) => {
+type Orientation = "landscape" | "portrait";
+
+// Real event photos. Orientation read directly from each file's actual
+// pixel dimensions (accounting for EXIF rotation) rather than guessed, so
+// the grid sizes each tile correctly.
+const ORIENTATIONS: Orientation[] = [
+  "portrait", // 01
+  "landscape", // 02
+  "portrait", // 03
+  "portrait", // 04
+  "portrait", // 05
+  "landscape", // 06
+  "landscape", // 07
+  "landscape", // 08
+  "portrait", // 09
+  "landscape", // 10
+  "portrait", // 11
+  "portrait", // 12
+  "landscape", // 13
+  "landscape", // 14
+  "portrait", // 15
+];
+
+const PHOTOS = ORIENTATIONS.map((orientation, i) => {
   const n = i + 1;
-  const landscape = n % 3 !== 0;
   return {
-    src: `/images/gallery/photo-${String(n).padStart(2, "0")}.svg`,
+    src: `/images/gallery/photo-${String(n).padStart(2, "0")}.jpg`,
     alt: `Best Buddy UP! event photo ${n}`,
-    orientation: (landscape ? "landscape" : "portrait") as "landscape" | "portrait",
+    orientation,
   };
 });
 
@@ -28,7 +50,7 @@ export default function GalleryPage() {
           <SectionHeading
             eyebrow="The full album"
             title="Every trip, meetup, and everything in between."
-            description="Real event photos will replace these placeholders as they come in."
+            description="More photos land here after every event — this is what showing up looks like."
           />
           <div className="mt-12">
             <GalleryGrid photos={PHOTOS} />

@@ -48,7 +48,7 @@ export default function AboutPage() {
             </Reveal>
             <Reveal delay={0.1}>
               <Image
-                src="/images/hero/home-hero.svg"
+                src="/images/hero/home-hero.jpg"
                 alt="Best Buddy UP! members at a group event"
                 width={1200}
                 height={900}

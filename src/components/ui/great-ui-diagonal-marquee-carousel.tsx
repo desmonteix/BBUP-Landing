@@ -21,16 +21,16 @@ export interface DiagonalMarqueeCarouselProps {
 }
 
 /**
- * Our own gallery placeholders (public/images/gallery/photo-01..16.svg),
+ * Our own real gallery photos (public/images/gallery/photo-01..15.jpg),
  * not the original component's hotlinked stock nature photos — those had
  * no connection to the org and would've undercut the "not generic" goal
  * this component was brought in for.
  */
-const DEFAULT_CARDS: CardItem[] = Array.from({ length: 16 }, (_, i) => {
+const DEFAULT_CARDS: CardItem[] = Array.from({ length: 15 }, (_, i) => {
   const n = i + 1;
   return {
     id: n,
-    url: `/images/gallery/photo-${String(n).padStart(2, "0")}.svg`,
+    url: `/images/gallery/photo-${String(n).padStart(2, "0")}.jpg`,
     title: `Best Buddy UP! moment ${n}`,
   };
 });
