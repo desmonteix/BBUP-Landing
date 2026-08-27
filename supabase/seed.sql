@@ -28,70 +28,22 @@ values (3.75, 'manual_override');
 --   international-dinner -> barranco-city-tour (renamed)
 --   welcome-party/huacachina-trip/pichangas -> re-inserted with real
 --     uploaded photo paths instead of SVG placeholders
+--
+-- The 4 upcoming demo events (welcome-mixer, peruvian-cooking-night,
+-- salsa-social, beach-day-punta-hermosa) were placeholder/demo content and
+-- are intentionally no longer seeded — the site should honestly show
+-- "nothing on the calendar right now" until an organizer creates a real
+-- event via /admin, rather than displaying fake upcoming events.
 delete from public.events where slug in (
   'cusco-day-trip', 'farewell-fiesta', 'international-dinner',
-  'welcome-party', 'huacachina-trip', 'pichangas'
+  'welcome-party', 'huacachina-trip', 'pichangas',
+  'welcome-mixer', 'peruvian-cooking-night', 'salsa-social',
+  'beach-day-punta-hermosa'
 );
 
 insert into public.events
   (slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category)
 values
-  (
-    'welcome-mixer',
-    'Welcome Mixer',
-    'The easiest way to meet your first Best Buddy UP! crowd. No agenda beyond good food, name tags, and an icebreaker game nobody takes too seriously. Come solo — everyone here did.',
-    '/images/events/welcome-mixer.svg',
-    now() + interval '7 days',
-    'Parque Kennedy, Miraflores',
-    'free',
-    null,
-    null,
-    80,
-    'open',
-    'Events'
-  ),
-  (
-    'peruvian-cooking-night',
-    'Peruvian Cooking Night: Ceviche & Lomo Saltado',
-    'A hands-on class with a local chef — you''ll cook (and eat) ceviche and lomo saltado from scratch, in mixed teams of exchange students and buddies. All ingredients and an apron included.',
-    '/images/events/peruvian-cooking-night.svg',
-    now() + interval '14 days',
-    'Cocina Comunitaria, Barranco',
-    'paid',
-    45.00,
-    15.00,
-    30,
-    'open',
-    'S&C'
-  ),
-  (
-    'salsa-social',
-    'Salsa & Tandem Social',
-    'Half language exchange, half dance lesson. A local instructor teaches the basics for the first hour, then it''s an open dance floor. Spanish/English/everything-in-between encouraged.',
-    '/images/events/salsa-social.svg',
-    now() + interval '21 days',
-    'Casa Tandem, Barranco',
-    'free',
-    null,
-    null,
-    null,
-    'open',
-    'Tandem'
-  ),
-  (
-    'beach-day-punta-hermosa',
-    'Beach Day — Punta Hermosa',
-    'A full day at the beach an hour south of Lima: transport, a beginner surf lesson, and lunch included. Bring sunscreen, we bring the rest.',
-    '/images/events/beach-day-punta-hermosa.svg',
-    now() + interval '35 days',
-    'Punta Hermosa (bus from Miraflores)',
-    'paid',
-    60.00,
-    20.00,
-    40,
-    'open',
-    'Sports'
-  ),
   (
     'welcome-party',
     'Welcome Party',
