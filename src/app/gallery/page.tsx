@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Container } from "@/components/ui/Container";
 import { GalleryGrid } from "@/components/gallery/GalleryGrid";
+import { GalleryHero } from "@/components/gallery/GalleryHero";
 
 export const metadata: Metadata = {
   title: "Gallery",
@@ -20,17 +21,20 @@ const PHOTOS = Array.from({ length: 16 }, (_, i) => {
 
 export default function GalleryPage() {
   return (
-    <section className="py-16 sm:py-20">
-      <Container>
-        <SectionHeading
-          eyebrow="Gallery"
-          title="Moments, not staged photos."
-          description="A running album from meetups, trips, and everything in between. Real event photos will replace these placeholders as they come in."
-        />
-        <div className="mt-12">
-          <GalleryGrid photos={PHOTOS} />
-        </div>
-      </Container>
-    </section>
+    <>
+      <GalleryHero />
+      <section className="py-16 sm:py-20">
+        <Container>
+          <SectionHeading
+            eyebrow="The full album"
+            title="Every trip, meetup, and everything in between."
+            description="Real event photos will replace these placeholders as they come in."
+          />
+          <div className="mt-12">
+            <GalleryGrid photos={PHOTOS} />
+          </div>
+        </Container>
+      </section>
+    </>
   );
 }

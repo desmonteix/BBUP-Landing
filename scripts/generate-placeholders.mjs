@@ -95,14 +95,16 @@ TEAM.forEach((name, i) => {
   );
 });
 
-// Event covers — 1200x675, 6 sample events
+// Event covers — 1200x675, upcoming + the 4 representative past events
 const EVENTS = [
   "welcome-mixer",
-  "cusco-day-trip",
   "peruvian-cooking-night",
   "salsa-social",
   "beach-day-punta-hermosa",
-  "farewell-fiesta",
+  "welcome-party",
+  "huacachina-trip",
+  "pichangas",
+  "international-dinner",
 ];
 EVENTS.forEach((slug, i) => {
   write(
@@ -117,8 +119,8 @@ EVENTS.forEach((slug, i) => {
   );
 });
 
-// Event gallery (per past event) — ~1200 long edge, 4 per past event, 3 past events
-["welcome-mixer", "cusco-day-trip", "peruvian-cooking-night"].forEach((slug, ei) => {
+// Event gallery (per past event) — ~1200 long edge, 4 per past event
+["welcome-party", "huacachina-trip", "pichangas", "international-dinner"].forEach((slug, ei) => {
   for (let i = 1; i <= 4; i++) {
     const landscape = i % 2 === 1;
     write(

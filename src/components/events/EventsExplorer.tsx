@@ -36,12 +36,20 @@ export function EventsExplorer({
           </p>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {upcoming.map((event, i) => (
-            <Reveal key={event.id} delay={staggerDelay(i)}>
-              <EventCard event={event} onOpen={() => setSelectedId(event.id)} />
-            </Reveal>
-          ))}
+        <div>
+          <h2 className="font-display text-lg font-semibold text-ink">
+            Book your spot
+          </h2>
+          <p className="mt-1 text-sm text-ink/60">
+            Upcoming events — reserve a free spot or grab a ticket, right on this page.
+          </p>
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {upcoming.map((event, i) => (
+              <Reveal key={event.id} delay={staggerDelay(i)}>
+                <EventCard event={event} onOpen={() => setSelectedId(event.id)} />
+              </Reveal>
+            ))}
+          </div>
         </div>
       )}
 

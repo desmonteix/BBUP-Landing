@@ -20,6 +20,12 @@
 insert into public.exchange_rates (rate, source)
 values (3.75, 'manual_override');
 
+-- Past events changed since this seed was first written (cusco-day-trip,
+-- farewell-fiesta -> the 4 events below) — clean up the old slugs so
+-- re-running this file against an already-seeded local DB doesn't leave
+-- stale rows sitting alongside the new ones.
+delete from public.events where slug in ('cusco-day-trip', 'farewell-fiesta');
+
 insert into public.events
   (slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category)
 values
@@ -80,31 +86,59 @@ values
     'Sports'
   ),
   (
-    'cusco-day-trip',
-    'Cusco Weekend Trip',
-    'Three days, two nights in Cusco: flights, hotel, a guided Sacsayhuamán tour, and a group dinner included. Machu Picchu entry available as an add-on at check-in.',
-    '/images/events/cusco-day-trip.svg',
-    now() - interval '20 days',
-    'Cusco',
+    'welcome-party',
+    'Welcome Party',
+    'The one that kicks off every semester — the whole crowd, old buddies and brand-new exchange students, in one room on night one. This is where most friendships here actually start.',
+    '/images/events/welcome-party.svg',
+    now() - interval '55 days',
+    'Parque Kennedy, Miraflores',
+    'free',
+    null,
+    null,
+    120,
+    'closed',
+    'Events'
+  ),
+  (
+    'huacachina-trip',
+    'Huacachina Trip',
+    'Our flagship trip: a weekend at the desert oasis outside Ica — dune buggy rides, sandboarding until your legs give out, and a sunset that everyone ends up photographing from the same dune.',
+    '/images/events/huacachina-trip.svg',
+    now() - interval '42 days',
+    'Huacachina, Ica',
     'paid',
-    350.00,
-    110.00,
-    25,
+    180.00,
+    55.00,
+    35,
     'closed',
     'Trips'
   ),
   (
-    'farewell-fiesta',
-    'End of Semester Farewell Fiesta',
-    'The bittersweet one — a rooftop party to send off the semester''s exchange students with the whole Best Buddy UP! crowd. Playlist submissions open the week before.',
-    '/images/events/farewell-fiesta.svg',
-    now() - interval '10 days',
-    'Rooftop, San Isidro',
+    'pichangas',
+    'Pichangas',
+    'Casual pickup fútbol, Peruvian-style — mixed teams, no skill requirement, plenty of subs. Show up in whatever sneakers you have; nobody here is taking it that seriously.',
+    '/images/events/pichangas.svg',
+    now() - interval '28 days',
+    'Complejo Deportivo, San Borja',
     'free',
     null,
     null,
     null,
     'closed',
-    'Events'
+    'Sports'
+  ),
+  (
+    'international-dinner',
+    'The International Dinner',
+    'Everyone brings a dish from home — Peruvian buddies included — and the table ends up with ceviche next to kimchi next to tiramisu. The closest thing we have to a group photo of where everyone''s from.',
+    '/images/events/international-dinner.svg',
+    now() - interval '14 days',
+    'Casa Tandem, Barranco',
+    'paid',
+    35.00,
+    12.00,
+    50,
+    'closed',
+    'S&C'
   )
 on conflict (slug) do nothing;

@@ -39,7 +39,7 @@ export const VALUES = [
   {
     title: "Open to everyone",
     description:
-      "Any nationality, any university, any budget — free events every month, paid trips priced fairly for both sides.",
+      "Any nationality, any university, any budget — there's an event here for you.",
   },
 ];
 
@@ -89,8 +89,8 @@ export const TESTIMONIALS_FULL: Testimonial[] = [
 ];
 
 export const STATS = [
-  { label: "Exchange students welcomed", value: 480, suffix: "+" },
-  { label: "Events run since 2019", value: 96, suffix: "" },
-  { label: "Countries represented", value: 34, suffix: "" },
-  { label: "Peruvian buddies active", value: 210, suffix: "+" },
+  { label: "Exchange students welcomed", value: 1200, suffix: "+" },
+  { label: "Events run since 2019", value: 120, suffix: "" },
+  { label: "Countries represented", value: 30, suffix: "" },
+  { label: "Peruvian buddies active", value: 60, suffix: "+" },
 ];
