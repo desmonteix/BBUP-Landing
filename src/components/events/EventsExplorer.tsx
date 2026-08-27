@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
 import type { PublicEvent } from "@/lib/types";
 import { EventCard } from "@/components/events/EventCard";
+import { PastEventCard } from "@/components/events/PastEventCard";
 import { EventModal } from "@/components/events/EventModal";
 import { Reveal } from "@/components/ui/Reveal";
 import { staggerDelay } from "@/lib/utils";
@@ -18,10 +18,8 @@ export function EventsExplorer({
   isLoggedIn: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [pastOpen, setPastOpen] = useState(false);
 
-  const all = [...upcoming, ...past];
-  const selected = all.find((e) => e.id === selectedId) ?? null;
+  const selected = upcoming.find((e) => e.id === selectedId) ?? null;
 
   return (
     <>
@@ -55,28 +53,19 @@ export function EventsExplorer({
 
       {past.length > 0 && (
         <div className="mt-16">
-          <button
-            type="button"
-            onClick={() => setPastOpen((v) => !v)}
-            className="flex cursor-pointer items-center gap-2 font-display text-lg font-semibold text-ink transition-colors duration-200 hover:text-pink"
-            aria-expanded={pastOpen}
-          >
-            <ChevronDown
-              size={20}
-              className={`transition-transform duration-200 ${pastOpen ? "rotate-180" : ""}`}
-            />
-            Past events ({past.length})
-          </button>
-
-          {pastOpen && (
-            <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {past.map((event, i) => (
-                <Reveal key={event.id} delay={staggerDelay(i)}>
-                  <EventCard event={event} onOpen={() => setSelectedId(event.id)} />
-                </Reveal>
-              ))}
-            </div>
-          )}
+          <h2 className="font-display text-lg font-semibold text-ink">
+            The fun so far
+          </h2>
+          <p className="mt-1 text-sm text-ink/60">
+            A look back at what being part of Best Buddy UP! actually looks like.
+          </p>
+          <div className="mt-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+            {past.map((event, i) => (
+              <Reveal key={event.id} delay={staggerDelay(i)}>
+                <PastEventCard event={event} />
+              </Reveal>
+            ))}
+          </div>
         </div>
       )}
 

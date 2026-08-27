@@ -95,16 +95,15 @@ TEAM.forEach((name, i) => {
   );
 });
 
-// Event covers — 1200x675, upcoming + the 4 representative past events
+// Event covers — 1200x675. Only the still-upcoming events without a real
+// photo yet — the 4 past events (welcome-party, huacachina-trip,
+// pichangas, barranco-city-tour) now use real uploaded photos, see
+// public/images/events/*.jpg, so they're intentionally not generated here.
 const EVENTS = [
   "welcome-mixer",
   "peruvian-cooking-night",
   "salsa-social",
   "beach-day-punta-hermosa",
-  "welcome-party",
-  "huacachina-trip",
-  "pichangas",
-  "international-dinner",
 ];
 EVENTS.forEach((slug, i) => {
   write(
@@ -117,23 +116,6 @@ EVENTS.forEach((slug, i) => {
       seed: i,
     })
   );
-});
-
-// Event gallery (per past event) — ~1200 long edge, 4 per past event
-["welcome-party", "huacachina-trip", "pichangas", "international-dinner"].forEach((slug, ei) => {
-  for (let i = 1; i <= 4; i++) {
-    const landscape = i % 2 === 1;
-    write(
-      `events/${slug}-gallery-${i}.svg`,
-      svgPlaceholder({
-        width: landscape ? 1200 : 900,
-        height: landscape ? 800 : 1200,
-        label: "EVENT PHOTO",
-        sublabel: `${slug.replace(/-/g, " ")} candid #${i}`,
-        seed: ei + i,
-      })
-    );
-  }
 });
 
 // Gallery page — 16 mixed portrait/landscape

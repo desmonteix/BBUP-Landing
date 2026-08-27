@@ -13,7 +13,6 @@ export function EventCard({
   event: PublicEvent;
   onOpen: () => void;
 }) {
-  const isPast = new Date(event.event_date).getTime() < Date.now();
   const isFull = event.spots_remaining === 0;
 
   return (
@@ -30,13 +29,6 @@ export function EventCard({
           sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
         />
-        {isPast && (
-          <div className="absolute inset-0 flex items-center justify-center bg-ink/50">
-            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-ink">
-              Past event
-            </span>
-          </div>
-        )}
       </div>
 
       <div className="flex flex-1 flex-col p-5">
@@ -54,7 +46,7 @@ export function EventCard({
           ) : (
             <Badge tone="neutral">Paid</Badge>
           )}
-          {isFull && !isPast && <Badge tone="error">Full</Badge>}
+          {isFull && <Badge tone="error">Full</Badge>}
         </div>
 
         <h3 className="mt-3 font-display text-lg font-semibold leading-snug text-ink transition-colors duration-200 group-hover:text-pink">
