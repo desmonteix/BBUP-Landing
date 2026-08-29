@@ -4,7 +4,6 @@ import { Reveal } from "@/components/ui/Reveal";
 import { Container } from "@/components/ui/Container";
 import { CrossingPaths } from "@/components/ui/CrossingPaths";
 import { ValuesSection } from "@/components/about/ValuesSection";
-import { TeamSection } from "@/components/about/TeamSection";
 import { Testimonials } from "@/components/home/Testimonials";
 import { TESTIMONIALS_FULL } from "@/lib/content";
 
@@ -61,7 +60,6 @@ export default function AboutPage() {
 
       <CrossingPaths />
       <ValuesSection />
-      <TeamSection />
       <Testimonials
         items={TESTIMONIALS_FULL}
         eyebrow="Community voices"

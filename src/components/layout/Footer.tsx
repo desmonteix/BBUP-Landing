@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Instagram, MessageCircle, Music2 } from "lucide-react";
+import { Instagram } from "lucide-react";
 import { NewsletterForm } from "@/components/home/NewsletterForm";
 
 export function Footer() {
@@ -26,14 +26,8 @@ export function Footer() {
               one friendship at a time.
             </p>
             <div className="mt-5 flex gap-3">
-              <SocialLink href="https://instagram.com" label="Instagram">
+              <SocialLink href="https://www.instagram.com/bbupacifico/" label="Instagram">
                 <Instagram size={18} />
-              </SocialLink>
-              <SocialLink href="https://tiktok.com" label="TikTok">
-                <Music2 size={18} />
-              </SocialLink>
-              <SocialLink href="https://wa.me/51999999999" label="WhatsApp">
-                <MessageCircle size={18} />
               </SocialLink>
             </div>
           </div>
@@ -79,7 +73,9 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col gap-2 border-t border-border pt-6 text-xs text-ink/45 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Best Buddy UP!. Lima, Peru.</p>
-          <p>hello@bestbuddyup.org (placeholder)</p>
+          <a href="mailto:bbup.ori@alum.up.edu.pe" className="hover:text-pink">
+            bbup.ori@alum.up.edu.pe
+          </a>
         </div>
       </div>
     </footer>
