@@ -1,13 +1,23 @@
 import Image from "next/image";
-import type { PublicEvent } from "@/lib/types";
+
+export interface PastEventCardData {
+  id: string;
+  title: string;
+  cover_image: string | null;
+}
 
 /**
  * Past events are a highlight reel, not a booking flow — no modal, no
  * click target, just the photo and the name. Deliberately simpler than
  * EventCard (no badges/date/location/capacity): the point is showing the
  * fun, not repeating logistics for something you can no longer attend.
+ *
+ * Takes a narrow shape (not the full `PublicEvent`) because past events
+ * shown here are a mix of static showcase content (content.ts — not real
+ * Supabase rows, see PAST_EVENTS_SHOWCASE) and real closed events from the
+ * DB once the org has actually run some.
  */
-export function PastEventCard({ event }: { event: PublicEvent }) {
+export function PastEventCard({ event }: { event: PastEventCardData }) {
   return (
     <figure className="group relative aspect-[4/5] overflow-hidden rounded-md bg-paper-sunk shadow-sm">
       <Image

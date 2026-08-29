@@ -7,6 +7,7 @@ import { PastEventCard } from "@/components/events/PastEventCard";
 import { EventModal } from "@/components/events/EventModal";
 import { Reveal } from "@/components/ui/Reveal";
 import { staggerDelay } from "@/lib/utils";
+import { PAST_EVENTS_SHOWCASE } from "@/lib/content";
 
 export function EventsExplorer({
   upcoming,
@@ -14,12 +15,15 @@ export function EventsExplorer({
   isLoggedIn,
 }: {
   upcoming: PublicEvent[];
+  /** Real closed events from the DB — merged with the always-on static
+   * PAST_EVENTS_SHOWCASE below, not a replacement for it. */
   past: PublicEvent[];
   isLoggedIn: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selected = upcoming.find((e) => e.id === selectedId) ?? null;
+  const pastShowcase = [...PAST_EVENTS_SHOWCASE, ...past];
 
   return (
     <>
@@ -51,7 +55,7 @@ export function EventsExplorer({
         </div>
       )}
 
-      {past.length > 0 && (
+      {pastShowcase.length > 0 && (
         <div className="mt-16">
           <h2 className="font-display text-lg font-semibold text-ink">
             The fun so far
@@ -60,7 +64,7 @@ export function EventsExplorer({
             A look back at what being part of Best Buddy UP! actually looks like.
           </p>
           <div className="mt-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
-            {past.map((event, i) => (
+            {pastShowcase.map((event, i) => (
               <Reveal key={event.id} delay={staggerDelay(i)}>
                 <PastEventCard event={event} />
               </Reveal>

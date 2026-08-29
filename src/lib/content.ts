@@ -6,6 +6,7 @@
  * Swap for real copy/photos later; shapes match src/lib/types.ts.
  */
 import type { TeamMember, Testimonial } from "@/lib/types";
+import type { PastEventCardData } from "@/components/events/PastEventCard";
 
 export const TEAM: TeamMember[] = [
   { id: "1", name: "Camila Rios", role: "Events Lead", photo: "/images/team/member-1.svg", committee: "Events" },
@@ -86,6 +87,21 @@ export const TESTIMONIALS_FULL: Testimonial[] = [
     role: "Buddy, Lima",
     avatar: "/images/testimonials/avatar-5.svg",
   },
+];
+
+/**
+ * Past-events showcase on /events — always-on reference content, NOT
+ * Supabase rows (explicit direction: keep these as a fixed highlight reel
+ * rather than real database data). The `events` table's `status='closed'`
+ * pathway still exists and is still used for real events once the org
+ * actually runs them — see src/components/events/EventsExplorer.tsx,
+ * which merges this static list with any real closed events from the DB.
+ */
+export const PAST_EVENTS_SHOWCASE: PastEventCardData[] = [
+  { id: "welcome-party", title: "Welcome Party", cover_image: "/images/events/welcome-party.jpg" },
+  { id: "huacachina-trip", title: "Huacachina Trip", cover_image: "/images/events/huacachina-trip.jpg" },
+  { id: "pichangas", title: "Pichangas", cover_image: "/images/events/pichangas.jpg" },
+  { id: "barranco-city-tour", title: "Barranco City Tour", cover_image: "/images/events/barranco-city-tour.jpg" },
 ];
 
 export const STATS = [
