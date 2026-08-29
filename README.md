@@ -36,10 +36,19 @@ npm install
    `supabase/migrations/0002_mercadopago_and_exchange_rates.sql` in order
    (schema, RLS policies, the `admin_registrants` view, the `exchange_rates`
    table).
-3. Optionally run `supabase/seed.sql` for sample events *and* a starter
+3. **Expose the `pagina_web` schema.** All app tables live in a custom
+   `pagina_web` schema, not the default `public` one — Supabase only
+   exposes `public`/`graphql_public` to the API by default. Go to
+   **Project Settings → API → Data API settings → Exposed schemas** and add
+   `pagina_web`. Skipping this step means every query from the app fails
+   with a PostgREST error, even though the tables exist and the migration
+   ran cleanly — the two migrations already handle the *other* non-public-schema
+   gotcha (PostgREST grants) for you, but this one is dashboard-only and
+   can't be scripted.
+4. Optionally run `supabase/seed.sql` for sample events *and* a starter
    exchange rate, so the site isn't empty — and non-Peruvian ticket
    checkout actually works — while developing.
-4. Copy `.env.example` to `.env.local` and fill in the three Supabase
+5. Copy `.env.example` to `.env.local` and fill in the three Supabase
    values from **Project Settings → API**: `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 
@@ -52,7 +61,7 @@ no self-service admin signup by design (spec §5).
    want to use as an organizer.
 2. In the Supabase SQL editor, find that user's id in `auth.users`, then run:
    ```sql
-   insert into public.admins (user_id) values ('<that-uuid>');
+   insert into pagina_web.admins (user_id) values ('<that-uuid>');
    ```
 3. Log in at `/admin/login` with the same email/password.
 

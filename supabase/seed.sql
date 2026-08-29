@@ -9,7 +9,7 @@
 --
 -- To make yourself an organizer admin after signing up once through the
 -- site (so you can log into /admin), run:
---   insert into public.admins (user_id)
+--   insert into pagina_web.admins (user_id)
 --   values ('<uuid from auth.users for your account>');
 
 -- Seed an initial exchange rate so non-Peruvian buyers can check out for
@@ -17,7 +17,7 @@
 -- ever run (see src/app/api/cron/exchange-rate/route.ts). Real deployments
 -- get this from the cron job instead — this row is purely a local-dev
 -- convenience, not a value to trust.
-insert into public.exchange_rates (rate, source)
+insert into pagina_web.exchange_rates (rate, source)
 values (3.75, 'manual_override');
 
 -- Past events changed since this seed was first written — clean up the old
@@ -34,14 +34,14 @@ values (3.75, 'manual_override');
 -- are intentionally no longer seeded — the site should honestly show
 -- "nothing on the calendar right now" until an organizer creates a real
 -- event via /admin, rather than displaying fake upcoming events.
-delete from public.events where slug in (
+delete from pagina_web.events where slug in (
   'cusco-day-trip', 'farewell-fiesta', 'international-dinner',
   'welcome-party', 'huacachina-trip', 'pichangas',
   'welcome-mixer', 'peruvian-cooking-night', 'salsa-social',
   'beach-day-punta-hermosa'
 );
 
-insert into public.events
+insert into pagina_web.events
   (slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category)
 values
   (

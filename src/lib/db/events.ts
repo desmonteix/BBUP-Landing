@@ -17,7 +17,7 @@ const PUBLIC_COLUMNS =
  * into the returned object.
  */
 export async function listEvents(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<any, any, any>,
   opts: { when: "upcoming" | "past"; viewerNationality: Nationality | null }
 ): Promise<PublicEvent[]> {
   const nowIso = new Date().toISOString();
@@ -53,7 +53,7 @@ export async function listEvents(
 }
 
 export async function getEventRowBySlug(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<any, any, any>,
   slug: string
 ): Promise<EventRow | null> {
   const { data, error } = await supabase
@@ -72,7 +72,7 @@ export async function getEventRowBySlug(
 }
 
 export async function getEventRowById(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<any, any, any>,
   id: string
 ): Promise<EventRow | null> {
   const { data, error } = await supabase
@@ -126,7 +126,7 @@ export function toPublicEvent(
 }
 
 async function attachSpotsRemaining(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<any, any, any>,
   rows: EventRow[]
 ): Promise<(EventRow & { registration_count: number })[]> {
   const eventsWithCapacity = rows.filter((r) => r.capacity != null);

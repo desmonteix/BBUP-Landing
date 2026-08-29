@@ -24,6 +24,10 @@ export function createAdminClient() {
         autoRefreshToken: false,
         persistSession: false,
       },
+      // All app tables live in the `pagina_web` schema, not `public` — see
+      // supabase/migrations. Auth itself is unaffected (always `auth`
+      // schema regardless of this setting).
+      db: { schema: "pagina_web" },
     }
   );
 }

@@ -17,6 +17,9 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // All app tables live in the `pagina_web` schema, not `public` — see
+      // supabase/migrations. Auth itself is unaffected.
+      db: { schema: "pagina_web" },
       cookies: {
         getAll() {
           return cookieStore.getAll();
