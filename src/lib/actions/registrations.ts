@@ -115,7 +115,7 @@ export async function createTicketIntent(
   if (event.status !== "open") return { ok: false, error: "Ticket sales are closed for this event." };
 
   const currentRate = await getCurrentExchangeRate();
-  const price = resolvePriceForNationality(profile.nationality, event, currentRate?.rate ?? null);
+  const price = resolvePriceForNationality(profile.nationality, event, currentRate);
   if (!price) {
     return {
       ok: false,

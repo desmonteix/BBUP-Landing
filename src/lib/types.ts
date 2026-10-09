@@ -120,6 +120,13 @@ export interface ResolvedPrice {
   chargeAmountPen: number;
   displayPriceUsd: number | null;
   exchangeRate: number | null;
+  /**
+   * Whether `exchangeRate` is the BCRP rate plus our margin, as opposed to a
+   * rate an organizer set by hand during an outage. Checkout tells the buyer
+   * how their charge was derived, and that sentence is only true for the
+   * automatic path — without this flag the UI cannot say it accurately.
+   */
+  includesMargin: boolean;
 }
 
 export type RegistrationKind = "rsvp" | "ticket";

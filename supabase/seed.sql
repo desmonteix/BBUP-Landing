@@ -20,5 +20,13 @@
 -- paid events immediately, before the daily BCRP cron has ever run (see
 -- src/app/api/cron/exchange-rate/route.ts). This is a real functional
 -- fallback, not demo content — remove/update once the cron has run once.
+--
+-- 3.85, not the ~3.75 BCRP reference: the margin is baked in on purpose.
+-- src/lib/pricing.ts adds BCRP_RATE_MARKUP only to rows sourced from the
+-- cron ('bcrp_auto'); a 'manual_override' is charged exactly as written, so
+-- seeding the bare reference rate would quietly sell to non-Peruvian buyers
+-- with no margin until the cron first runs — up to a full day after deploy,
+-- and forever in local dev, where Vercel Cron never fires. Same rule the
+-- admin panel states when an organizer sets a rate by hand.
 insert into pagina_web.exchange_rates (rate, source)
-values (3.75, 'manual_override');
+values (3.85, 'manual_override');

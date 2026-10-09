@@ -152,10 +152,18 @@ export async function setManualExchangeRate(
   await assertAdmin();
 
   const raw = formData.get("rate");
-  const rate = typeof raw === "string" ? Number(raw) : NaN;
+  const parsed = typeof raw === "string" ? Number(raw) : NaN;
 
-  if (!Number.isFinite(rate) || rate <= 0) {
+  if (!Number.isFinite(parsed) || parsed <= 0) {
     return { status: "error", message: "Enter a positive number, e.g. 3.75." };
+  }
+
+  // Normalize to the 3 decimals every display uses. The input's step="0.001"
+  // is only a client-side hint, so without this a rate submitted with more
+  // precision would be charged at a value the panel never shows.
+  const rate = Math.round(parsed * 1000) / 1000;
+  if (rate <= 0) {
+    return { status: "error", message: "Enter a rate of at least 0.001." };
   }
 
   const result = await recordExchangeRate(rate, "manual_override");

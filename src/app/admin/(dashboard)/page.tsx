@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatEventDate } from "@/lib/utils";
 import { getCurrentExchangeRate, isExchangeRateStale } from "@/lib/exchangeRate";
+import { BCRP_RATE_MARKUP, effectiveRateFor } from "@/lib/pricing";
 import { CategoryBadge } from "@/components/events/CategoryBadge";
 import { ExchangeRatePanel } from "@/components/admin/ExchangeRatePanel";
 import { Badge } from "@/components/ui/Badge";
@@ -32,9 +33,19 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
+      {/* `pricing` is server-only, so the effective rate is resolved here and
+          handed down rather than recomputed inside the client component. */}
       <ExchangeRatePanel
-        currentRate={currentRate}
-        isStale={currentRate ? isExchangeRateStale(currentRate) : false}
+        rate={
+          currentRate
+            ? {
+                current: currentRate,
+                chargedRate: effectiveRateFor(currentRate),
+                markup: BCRP_RATE_MARKUP,
+                isStale: isExchangeRateStale(currentRate),
+              }
+            : null
+        }
       />
 
       <div className="mt-10 flex items-center justify-between">

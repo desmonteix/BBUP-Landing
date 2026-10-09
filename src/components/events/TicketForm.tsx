@@ -39,7 +39,7 @@ export function TicketForm({
           <LogIn size={18} />
           Log in to buy a ticket
         </Link>
-        <p className="mt-3 text-xs text-ink/50">
+        <p className="mt-3 text-xs text-ink/70">
           New here?{" "}
           <Link href="/signup" className="font-semibold text-pink hover:underline">
             Create an account
@@ -55,7 +55,7 @@ export function TicketForm({
     <div className="space-y-4">
       {resolvedPrice && (
         <div className="rounded-md border border-border bg-paper-sunk p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">
             Your price
           </p>
           {resolvedPrice.displayPriceUsd != null && resolvedPrice.exchangeRate != null ? (
@@ -63,14 +63,18 @@ export function TicketForm({
               <p className="mt-1 font-display text-2xl font-semibold text-ink">
                 {formatMoney(resolvedPrice.displayPriceUsd, "USD")}
               </p>
-              <p className="mt-1 text-sm text-ink/60">
+              <p className="mt-1 text-sm text-ink/70">
                 ≈ {formatMoney(resolvedPrice.chargeAmountPen, "PEN")} charged to your card
               </p>
-              <p className="mt-1 text-xs text-ink/45">
-                Mercado Pago (our payment provider in Peru) only processes soles, so your card
-                is charged {formatMoney(resolvedPrice.chargeAmountPen, "PEN")} at today&rsquo;s
-                rate of S/ {resolvedPrice.exchangeRate.toFixed(3)} per US$ — your bank then
-                converts that to your home currency.
+              <p className="mt-1 text-xs text-ink/70">
+                Mercado Pago (our payment provider in Peru) only processes soles, so your card is
+                charged at our conversion rate of S/ {resolvedPrice.exchangeRate.toFixed(3)} per
+                US$
+                {resolvedPrice.includesMargin
+                  ? ": Peru's official BCRP rate plus a small margin covering payment costs."
+                  : ", set by hand by our team."}{" "}
+                Your bank then converts that to your own currency at its own rate, and may add a
+                foreign transaction fee.
               </p>
             </>
           ) : (
@@ -109,7 +113,7 @@ export function TicketForm({
           </>
         )}
       </button>
-      <p className="flex items-center justify-center gap-1.5 text-xs text-ink/45">
+      <p className="flex items-center justify-center gap-1.5 text-xs text-ink/70">
         <ShieldCheck size={14} />
         Secured by Mercado Pago — your card details never touch our servers.
       </p>

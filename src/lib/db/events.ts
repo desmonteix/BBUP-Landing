@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { EventRow, EventType, Nationality, PublicEvent } from "@/lib/types";
+import type { EventRow, EventType, ExchangeRate, Nationality, PublicEvent } from "@/lib/types";
 import { resolvePriceForNationality } from "@/lib/pricing";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 
@@ -47,9 +47,7 @@ export async function listEvents(
     rows.some((r) => r.type === "paid");
   const currentRate = needsRate ? await getCurrentExchangeRate() : null;
 
-  return withCounts.map((row) =>
-    toPublicEvent(row, opts.viewerNationality, currentRate?.rate ?? null)
-  );
+  return withCounts.map((row) => toPublicEvent(row, opts.viewerNationality, currentRate));
 }
 
 export async function getEventRowBySlug(
@@ -98,7 +96,7 @@ export async function getEventRowById(
 export function toPublicEvent(
   row: EventRow & { registration_count?: number },
   viewerNationality: Nationality | null,
-  currentExchangeRate: number | null = null
+  currentExchangeRate: ExchangeRate | null = null
 ): PublicEvent {
   const spotsRemaining =
     row.capacity == null
