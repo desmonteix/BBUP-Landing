@@ -2,12 +2,13 @@ import { cn } from "@/lib/utils";
 
 type Tone = "pink" | "blue" | "success" | "error" | "neutral";
 
+// Text here is 12px semibold — normal-size under WCAG, so every tone needs
+// 4.5:1. The brand colours do not reach that on their own tints, hence the
+// *-on-tint variants; error is the one case a lighter tint could carry.
 const tones: Record<Tone, string> = {
-  pink: "bg-pink-tint text-pink",
-  blue: "bg-blue-tint text-[#1C7FAE]",
-  success: "bg-success/10 text-success",
-  // bg-error/5, not /10: the heavier tint drops text-error to 4.32:1, under
-  // the 4.5:1 AA needs for this 12px semibold text.
+  pink: "bg-pink-tint text-pink-on-tint",
+  blue: "bg-blue-tint text-blue-on-tint",
+  success: "bg-success/10 text-success-on-tint",
   error: "bg-error/5 text-error",
   neutral: "bg-ink/5 text-ink/70",
 };

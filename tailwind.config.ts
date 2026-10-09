@@ -15,6 +15,16 @@ const config: Config = {
         success: "#1E8F6F",
         error: "#C6395B",
         border: "#EBDCE3",
+        // Darkened variants for small text sitting on the matching tint.
+        // The colours Badge used as text measure 3.97 (success #1E8F6F), 4.01
+        // (pink #E23A82) and 4.41 (a one-off #1C7FAE, now blue-on-tint) even
+        // against bare paper, so no lighter background could lift them to the
+        // 4.5:1 AA needs for 12px text — the text itself had to go darker.
+        // These are the smallest steps that reach AA. Text only: keep using
+        // the brand colours above for fills, gradients and headings.
+        "success-on-tint": "#1A7B5F",
+        "pink-on-tint": "#BE316D",
+        "blue-on-tint": "#1A75A0",
       },
       fontFamily: {
         display: ["var(--font-fredoka)", "system-ui", "sans-serif"],
