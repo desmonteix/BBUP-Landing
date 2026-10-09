@@ -17,7 +17,9 @@ export default async function AdminLoginPage({
       description="Restricted to the Best Buddy UP! organizer team."
     >
       {error === "not-authorized" && (
-        <p className="mb-4 rounded-md bg-error/10 p-3 text-sm font-semibold text-error" role="alert">
+        /* bg-error/5, not /10: the heavier tint drops text-error to 4.39:1,
+           under the 4.5:1 AA needs for 14px semibold. */
+        <p className="mb-4 rounded-md bg-error/5 p-3 text-sm font-semibold text-error" role="alert">
           That account isn&rsquo;t on the organizer list. Contact an existing admin if you
           think this is a mistake.
         </p>

@@ -6,7 +6,9 @@ const tones: Record<Tone, string> = {
   pink: "bg-pink-tint text-pink",
   blue: "bg-blue-tint text-[#1C7FAE]",
   success: "bg-success/10 text-success",
-  error: "bg-error/10 text-error",
+  // bg-error/5, not /10: the heavier tint drops text-error to 4.32:1, under
+  // the 4.5:1 AA needs for this 12px semibold text.
+  error: "bg-error/5 text-error",
   neutral: "bg-ink/5 text-ink/70",
 };
 
