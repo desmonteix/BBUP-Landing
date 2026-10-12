@@ -5,8 +5,9 @@ import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
  * Server-side Mercado Pago Checkout Pro client (spec §3, §10). Card data
  * never reaches this file — it creates a "preference" (a description of
  * what's being sold), Mercado Pago hosts the actual payment page
- * (`init_point`), and we only ever read back a payment's status by id
- * (webhook-driven, see src/app/api/mercadopago/webhook/route.ts).
+ * (`init_point`), and all this module ever reads back is a payment's
+ * status: by id for the webhook, or by `external_reference` when the
+ * return page has to recover a payment whose notification never arrived.
  *
  * Verified directly against the installed `mercadopago` npm SDK's type
  * definitions (node_modules/mercadopago/dist/clients/preference/commonTypes.d.ts,
@@ -88,6 +89,89 @@ export async function createPaymentPreference(
   } catch (err) {
     console.error("[mercadopago] createPaymentPreference failed", err);
     return { ok: false, error: "Could not start the payment. Try again in a moment." };
+  }
+}
+
+/** The fields of a search hit this module reads. */
+export interface PaymentSearchHit {
+  id?: string;
+  status?: string;
+  external_reference?: string;
+  date_created?: string;
+  transaction_amount?: number;
+}
+
+/**
+ * Picks which payment decides a registration. Separate from the API call so
+ * it can be tested without a Mercado Pago account.
+ *
+ * Hits for another `external_reference` are dropped rather than trusted: the
+ * caller writes to whatever reference comes back, so a filter that silently
+ * stopped applying would settle a different buyer's ticket.
+ *
+ * An approved payment wins — a retry that eventually succeeded is the
+ * outcome. Otherwise the newest wins, being the attempt the buyer waits on.
+ * Equal timestamps fall back to the id so the choice never depends on the
+ * order the API happened to return (Array#sort is stable, so without that
+ * tiebreak the input order would decide).
+ */
+export function selectPaymentForRegistration(
+  results: PaymentSearchHit[],
+  registrationId: string
+): MercadoPagoPaymentInfo | null {
+  const mine = results
+    .filter((r) => r.id != null && r.external_reference === registrationId)
+    .sort((a, b) => {
+      const byNewest = (b.date_created ?? "").localeCompare(a.date_created ?? "");
+      return byNewest !== 0 ? byNewest : String(b.id).localeCompare(String(a.id));
+    });
+
+  const chosen = mine.find((r) => r.status === "approved") ?? mine[0];
+  if (!chosen) return null;
+
+  return {
+    id: String(chosen.id),
+    status: chosen.status,
+    externalReference: chosen.external_reference,
+    transactionAmount: chosen.transaction_amount,
+  };
+}
+
+/**
+ * Finds the payment for a registration, for when the webhook never arrived —
+ * a notification can be lost, rejected on a stale signature, or still in
+ * flight while the buyer already sits on the return page.
+ *
+ * Sorted newest-first explicitly: the API's default order is unspecified, so
+ * a buyer who retried more than `limit` times could otherwise get an
+ * arbitrary page of attempts that omits the one that succeeded.
+ *
+ * Query shape verified against the installed SDK's types
+ * (node_modules/mercadopago/dist/clients/payment/search/types.d.ts), where
+ * `PaymentSearchOptions` declares `external_reference`, `sort` and
+ * `criteria` as explicit typed fields.
+ */
+export async function findPaymentByRegistration(
+  registrationId: string
+): Promise<MercadoPagoPaymentInfo | null> {
+  try {
+    const client = getClient();
+    const payment = new Payment(client);
+    const response = await payment.search({
+      options: {
+        external_reference: registrationId,
+        sort: "date_created",
+        criteria: "desc",
+        limit: 20,
+      },
+    });
+
+    return selectPaymentForRegistration(response.results ?? [], registrationId);
+  } catch (err) {
+    // The recovery path going quiet is itself worth seeing in the logs: this
+    // is the only thing that settles a payment when the webhook does not.
+    console.error("[mercadopago] findPaymentByRegistration failed", err);
+    return null;
   }
 }
 

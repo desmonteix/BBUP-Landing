@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { WebhookSignatureValidator, InvalidWebhookSignatureError } from "mercadopago";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getMercadoPagoPayment } from "@/lib/mercadopago";
-import { sendTicketReceipt } from "@/lib/resend";
+import { applyPaymentToRegistration } from "@/lib/db/payments";
 
 /**
  * Mercado Pago webhook receiver (spec §5, §8). Verified against the
@@ -16,9 +15,11 @@ import { sendTicketReceipt } from "@/lib/resend";
  *
  * Card data never reaches this route — it only ever fetches a Payment by
  * id from Mercado Pago's own API after the signature checks out, then
- * copies over status/amount. Idempotent on `mercadopago_payment_id`
- * (unique index in migration 0002): a redelivered notification for a
- * payment we've already marked paid is a safe no-op.
+ * hands it to the settler. A redelivered notification is a safe no-op,
+ * because settling claims the row (`.neq("payment_status", "paid")` in
+ * src/lib/db/payments.ts) rather than re-writing it; the unique index on
+ * `mercadopago_payment_id` in migration 0002 guards something else, that
+ * one payment cannot be attached to two registrations.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
@@ -67,63 +68,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, paymentNotFound: true });
   }
 
-  const admin = createAdminClient();
-
-  const { data: registration } = await admin
-    .from("registrations")
-    .select("id, email, name, event_id, amount_pen, display_price_usd, exchange_rate_applied, payment_status, mercadopago_payment_id")
-    .eq("id", payment.externalReference)
-    .maybeSingle();
-
-  if (!registration) {
-    return NextResponse.json({ ok: true, registrationNotFound: true });
+  // Settling lives in src/lib/db/payments.ts because the buyer's return page
+  // performs the same reconciliation when a notification never arrives.
+  try {
+    const outcome = await applyPaymentToRegistration(payment);
+    return NextResponse.json({ ok: true, outcome });
+  } catch (err) {
+    // Mercado Pago retries on a 5xx, which is what we want when the write
+    // itself failed rather than the payment.
+    console.error("[mercadopago/webhook] could not settle payment", err);
+    return NextResponse.json({ error: "Could not save payment." }, { status: 500 });
   }
-
-  // Idempotency: already recorded as paid (possibly by a prior delivery of
-  // this same notification, or by an earlier notification for the same
-  // payment) — don't re-send the receipt email.
-  if (registration.payment_status === "paid" && registration.mercadopago_payment_id === payment.id) {
-    return NextResponse.json({ ok: true, alreadyPaid: true });
-  }
-
-  if (payment.status === "approved") {
-    const { error: updateError } = await admin
-      .from("registrations")
-      .update({ payment_status: "paid", mercadopago_payment_id: payment.id })
-      .eq("id", registration.id);
-
-    if (updateError) {
-      console.error("[mercadopago/webhook] failed to mark registration paid", updateError);
-      return NextResponse.json({ error: "Could not save payment." }, { status: 500 });
-    }
-
-    const { data: event } = await admin
-      .from("events")
-      .select("title, event_date, location")
-      .eq("id", registration.event_id)
-      .maybeSingle();
-
-    if (event && registration.amount_pen != null) {
-      await sendTicketReceipt({
-        to: registration.email,
-        name: registration.name,
-        eventTitle: event.title,
-        eventDate: event.event_date,
-        location: event.location,
-        amountPen: registration.amount_pen,
-        displayPriceUsd: registration.display_price_usd,
-        exchangeRateApplied: registration.exchange_rate_applied,
-        paymentId: payment.id,
-      });
-    }
-  } else if (payment.status === "rejected" || payment.status === "cancelled") {
-    await admin
-      .from("registrations")
-      .update({ payment_status: "failed", mercadopago_payment_id: payment.id })
-      .eq("id", registration.id);
-  }
-  // "pending"/"in_process" etc.: leave the registration as pending; a
-  // later notification will carry the final status.
-
-  return NextResponse.json({ ok: true });
 }

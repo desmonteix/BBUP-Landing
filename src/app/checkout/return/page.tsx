@@ -2,6 +2,8 @@ import Link from "next/link";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findPaymentByRegistration } from "@/lib/mercadopago";
+import { applyPaymentToRegistration } from "@/lib/db/payments";
 import { formatMoney } from "@/lib/money";
 import { LinkButton } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
@@ -15,10 +17,15 @@ export const dynamic = "force-dynamic";
  * embedded-modal flow the earlier Culqi integration used, so there has to
  * be *somewhere* for the buyer to land). The query params Mercado Pago
  * appends (`status`, `payment_id`, etc.) are NOT trusted as proof of
- * payment — only the webhook (HMAC-verified, see
- * src/app/api/mercadopago/webhook/route.ts) ever marks a registration
- * paid. This page just re-reads the registration's current status from
- * our own database to decide what to show.
+ * payment — nothing the buyer's browser carries decides anything here.
+ *
+ * While the registration is not yet paid, this page asks Mercado Pago's API
+ * directly what happened to it and settles it through the same code the
+ * webhook uses. The webhook is still the normal path; this is the fallback
+ * for when a notification is lost, rejected on a mismatched signature, or
+ * simply slower than the redirect. Without it a lost notification means the
+ * buyer is charged and never gets a ticket, and the only record of the sale
+ * lives on Mercado Pago's side.
  *
  * PII guard: only shows event/amount details if the logged-in viewer owns
  * the registration — otherwise (no session, or someone else's link) shows
@@ -56,6 +63,36 @@ export default async function CheckoutReturnPage({
     if (data && data.profile_id === user.id) {
       owned = true;
       registration = data;
+
+      // `failed` is re-checked too, not just `pending`: a buyer whose first
+      // attempt was rejected can retry and succeed, and freezing that row
+      // would leave the page telling someone who was charged that no charge
+      // was made. Free RSVPs ("n/a") have no payment to look up.
+      const settleable = data.payment_status === "pending" || data.payment_status === "failed";
+
+      if (settleable) {
+        const payment = await findPaymentByRegistration(registrationId);
+        if (payment) {
+          try {
+            await applyPaymentToRegistration(payment);
+            const { data: settled, error: rereadError } = await admin
+              .from("registrations")
+              .select("payment_status, amount_pen, display_price_usd")
+              .eq("id", registrationId)
+              .maybeSingle();
+            if (rereadError) {
+              console.error("[checkout/return] settled but could not re-read", rereadError);
+            }
+            if (settled) registration = settled;
+          } catch (err) {
+            // Show the status we already have rather than an error page: the
+            // buyer can do nothing about a failed write, and a reload or a
+            // late notification settles it.
+            console.error("[checkout/return] could not settle payment", err);
+          }
+        }
+      }
+
       const { data: event } = await admin
         .from("events")
         .select("title")
