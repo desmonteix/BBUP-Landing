@@ -16,6 +16,11 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // All app tables live in the `pagina_web` schema, not `public` — the
+      // same line the server, browser and admin clients already carry. Without
+      // it the organizer lookup below hits a `public.admins` that does not
+      // exist, which denied every organizer rather than failing loudly.
+      db: { schema: "pagina_web" },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -47,11 +52,18 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const { data: adminRow } = await supabase
+    const { data: adminRow, error } = await supabase
       .from("admins")
       .select("user_id")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    if (error) {
+      // Still deny — failing closed is right for an auth gate. But say so:
+      // discarding this error made a broken query look exactly like a
+      // rejected organizer, from the outside and in the logs alike.
+      console.error("[middleware] organizer lookup failed", error);
+    }
 
     if (!adminRow) {
       const url = request.nextUrl.clone();
