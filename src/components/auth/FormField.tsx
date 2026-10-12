@@ -29,7 +29,9 @@ export function TextField({
         defaultValue={defaultValue}
         className="w-full rounded-sm border border-border bg-white px-4 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink/35 focus-visible:border-pink focus-visible:shadow-glow"
       />
-      {hint && <p className="mt-1 text-xs text-ink/45">{hint}</p>}
+      {/* text-ink/70, not /45: the hint is where a password rule is stated
+          before anyone submits, and /45 measures 2.83:1 against the card. */}
+      {hint && <p className="mt-1 text-xs text-ink/70">{hint}</p>}
     </div>
   );
 }

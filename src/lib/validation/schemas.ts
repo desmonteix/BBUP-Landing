@@ -29,6 +29,18 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email"),
+});
+
+/** Same floor as signup — a reset must not be a way around the password rule. */
+export const resetPasswordSchema = z.object({
+  // Capped like every other string here rather than forwarded unbounded to
+  // the auth API. Supabase's hashes run ~56 characters; 512 is slack.
+  tokenHash: z.string().min(1).max(512),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
+
 export const profileUpdateSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),

@@ -22,7 +22,7 @@ export function AuthShell({
 
       <div className="relative w-full max-w-md">
         <div className="mb-8 text-center">
-          <p className="font-body text-xs font-semibold uppercase tracking-[0.14em] text-pink">
+          <p className="font-body text-xs font-semibold uppercase tracking-[0.14em] text-pink-on-tint">
             {eyebrow}
           </p>
           <h1 className="mt-2 font-display text-3xl font-semibold text-ink">{title}</h1>
