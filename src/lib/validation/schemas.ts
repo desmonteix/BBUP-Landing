@@ -61,6 +61,10 @@ export const rsvpSchema = z.object({
 
 export const ticketIntentSchema = z.object({
   eventId: z.string().uuid(),
+  companion: z.object({
+    firstName: z.string().trim().min(1, "Companion first name is required").max(100),
+    lastName: z.string().trim().min(1, "Companion last name is required").max(100),
+  }).optional(),
 });
 
 export const newsletterSchema = z.object({
@@ -78,7 +82,7 @@ export const eventFormSchema = z
       .regex(/^[a-z0-9-]+$/, "Use lowercase letters, numbers, and hyphens only"),
     description: z.string().trim().min(1, "Description is required"),
     coverImage: z.string().trim().url().optional().or(z.literal("")),
-    eventDate: z.string().min(1, "Date is required"),
+    eventDate: z.string().min(1, "Date is required").refine((value) => Number.isFinite(new Date(value).getTime()), "Enter a valid date"),
     location: z.string().trim().min(1, "Location is required").max(200),
     type: z.enum(["free", "paid"]),
     category: z.enum(COMMITTEE_KEYS as [string, ...string[]]),
@@ -86,6 +90,9 @@ export const eventFormSchema = z
     priceUsd: z.coerce.number().positive().optional(),
     capacity: z.coerce.number().int().positive().optional(),
     status: z.enum(["open", "closed"]),
+    allowCompanion: z.boolean().default(false),
+    promotions: z.string().trim().max(2000).default(""),
+    discounts: z.string().trim().max(2000).default(""),
   })
   .refine(
     (data) =>

@@ -3,9 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EventRow, EventType, ExchangeRate, Nationality, PublicEvent } from "@/lib/types";
 import { resolvePriceForNationality } from "@/lib/pricing";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const PUBLIC_COLUMNS =
-  "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, created_at";
+  "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, created_at";
 
 /**
  * Fetches events and maps each row down to `PublicEvent` — the shape that
@@ -36,7 +37,7 @@ export async function listEvents(
 
   const rows = (data ?? []) as EventRow[];
 
-  const withCounts = await attachSpotsRemaining(supabase, rows);
+  const withCounts = await attachSpotsRemaining(rows);
 
   // Only fetch the rate when it's actually needed: a non-Peruvian viewer
   // looking at at least one paid event. Peruvian buyers and anonymous
@@ -57,7 +58,7 @@ export async function getEventRowBySlug(
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, created_at"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -76,7 +77,7 @@ export async function getEventRowById(
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, created_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -116,6 +117,9 @@ export function toPublicEvent(
     spots_remaining: spotsRemaining,
     status: row.status,
     category: row.category,
+    allow_companion: row.allow_companion,
+    promotions: row.promotions,
+    discounts: row.discounts,
     resolved_price:
       row.type === "paid" && viewerNationality
         ? resolvePriceForNationality(viewerNationality, row, currentExchangeRate)
@@ -124,7 +128,6 @@ export function toPublicEvent(
 }
 
 async function attachSpotsRemaining(
-  supabase: SupabaseClient<any, any, any>,
   rows: EventRow[]
 ): Promise<(EventRow & { registration_count: number })[]> {
   const eventsWithCapacity = rows.filter((r) => r.capacity != null);
@@ -132,9 +135,11 @@ async function attachSpotsRemaining(
     return rows.map((r) => ({ ...r, registration_count: 0 }));
   }
 
-  const { data, error } = await supabase
+  // Read all bookings on the server: attendee RLS only exposes their own rows.
+  // Only aggregated availability reaches the public event object.
+  const { data, error } = await createAdminClient()
     .from("registrations")
-    .select("event_id")
+    .select("event_id, ticket_quantity")
     .in(
       "event_id",
       eventsWithCapacity.map((e) => e.id)
@@ -143,8 +148,8 @@ async function attachSpotsRemaining(
 
   const counts = new Map<string, number>();
   if (!error) {
-    for (const row of (data ?? []) as { event_id: string }[]) {
-      counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1);
+    for (const row of (data ?? []) as { event_id: string; ticket_quantity: number }[]) {
+      counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + row.ticket_quantity);
     }
   }
 

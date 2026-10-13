@@ -40,7 +40,7 @@ export async function applyPaymentToRegistration(
   const { data: registration } = await admin
     .from("registrations")
     .select(
-      "id, email, name, event_id, amount_pen, display_price_usd, exchange_rate_applied, payment_status, mercadopago_payment_id"
+      "id, email, name, event_id, amount_pen, display_price_usd, exchange_rate_applied, payment_status, mercadopago_payment_id, ticket_quantity, companion_first_name, companion_last_name"
     )
     .eq("id", payment.externalReference)
     .maybeSingle();
@@ -98,6 +98,8 @@ export async function applyPaymentToRegistration(
         displayPriceUsd: registration.display_price_usd,
         exchangeRateApplied: registration.exchange_rate_applied,
         paymentId: payment.id,
+        ticketQuantity: registration.ticket_quantity,
+        companionName: registration.companion_first_name ? `${registration.companion_first_name} ${registration.companion_last_name}` : null,
       });
     } else {
       console.error(

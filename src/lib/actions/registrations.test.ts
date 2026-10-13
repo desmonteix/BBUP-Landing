@@ -1,0 +1,75 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+const mocks = vi.hoisted(() => ({ profile: vi.fn(), event: vi.fn(), rate: vi.fn(), preference: vi.fn(), insert: vi.fn(), bookings: vi.fn(), update: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ getCurrentProfile: mocks.profile }));
+vi.mock("@/lib/db/events", () => ({ getEventRowById: mocks.event }));
+vi.mock("@/lib/exchangeRate", () => ({ getCurrentExchangeRate: mocks.rate }));
+vi.mock("@/lib/mercadopago", () => ({ createPaymentPreference: mocks.preference, getSiteUrl: () => "http://localhost:3000" }));
+vi.mock("@/lib/resend", () => ({ sendRsvpConfirmation: vi.fn() }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}) }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () => ({
+  select: () => ({ eq: () => ({ in: mocks.bookings }) }),
+  insert: (row: unknown) => { mocks.insert(row); return { select: () => ({ single: async () => ({ data: { id: "booking" }, error: null }) }) }; },
+  update: (row: unknown) => { mocks.update(row); return { eq: async () => ({ error: null }) }; },
+}) }) }));
+import { createTicketIntent } from "./registrations";
+const eventId = "00000000-0000-4000-8000-000000000001";
+const event = { id: eventId, title: "Party", type: "paid", status: "open", price_pen: 90, price_usd: 30, capacity: 10, allow_companion: true };
+const companion = { firstName: " Ana ", lastName: " Perez " };
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "Peruvian" });
+  mocks.event.mockResolvedValue(event);
+  mocks.rate.mockResolvedValue({ rate: 3.5, source: "manual_override" });
+  mocks.bookings.mockResolvedValue({ data: [], error: null });
+  mocks.preference.mockResolvedValue({ ok: true, initPoint: "https://example.com/pay" });
+});
+describe("ticket purchases", () => {
+  it("charges one entry without a companion", async () => {
+    expect(await createTicketIntent(eventId)).toMatchObject({ ok: true, chargeAmountPen: 90 });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 1, companion_first_name: null, amount_pen: 90 }));
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 90 }));
+  });
+  it("charges two entries and saves both companion names", async () => {
+    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 180 });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, companion_first_name: "Ana", companion_last_name: "Perez", amount_pen: 180 }));
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 180 }));
+  });
+  it("uses the buyer's USD reference and conversion for both entries", async () => {
+    mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
+    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 210, displayPriceUsd: 60, exchangeRate: 3.5 });
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 210 }));
+  });
+  it("rejects a forged companion request when disabled", async () => {
+    mocks.event.mockResolvedValue({ ...event, allow_companion: false });
+    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it("rejects a companion without a surname before creating a payment", async () => {
+    expect(await createTicketIntent(eventId, { firstName: "Ana", lastName: " " })).toMatchObject({ ok: false });
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("rejects two tickets when only one seat remains, counting existing companions", async () => {
+    mocks.bookings.mockResolvedValue({ data: [{ ticket_quantity: 2 }, { ticket_quantity: 2 }, { ticket_quantity: 2 }, { ticket_quantity: 2 }, { ticket_quantity: 1 }], error: null });
+    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it("allows two entries when exactly two seats remain", async () => {
+    mocks.bookings.mockResolvedValue({ data: Array.from({ length: 4 }, () => ({ ticket_quantity: 2 })), error: null });
+    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: true });
+  });
+  it("does not sell when capacity cannot be checked", async () => {
+    mocks.bookings.mockResolvedValue({ data: null, error: { message: "offline" } });
+    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it("releases both seats when payment preparation fails", async () => {
+    mocks.preference.mockResolvedValue({ ok: false, error: "Unavailable" });
+    expect(await createTicketIntent(eventId, companion)).toEqual({ ok: false, error: "Unavailable" });
+    expect(mocks.update).toHaveBeenCalledWith({ payment_status: "failed" });
+  });
+  it("requires authentication", async () => {
+    mocks.profile.mockResolvedValue(null);
+    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: false });
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+});

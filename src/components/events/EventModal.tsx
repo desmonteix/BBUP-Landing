@@ -115,6 +115,13 @@ export function EventModal({
                 {event.description}
               </p>
 
+              {(event.promotions || event.discounts) && (
+                <div className="mt-5 space-y-3 rounded-md bg-paper-sunk p-4">
+                  {event.promotions && <div><h3 className="text-sm font-semibold">Promociones</h3><p className="whitespace-pre-line text-sm text-ink/75">{event.promotions}</p></div>}
+                  {event.discounts && <div><h3 className="text-sm font-semibold">Descuentos</h3><p className="whitespace-pre-line text-sm text-ink/75">{event.discounts}</p></div>}
+                </div>
+              )}
+
               <div className="mt-7 border-t border-border pt-6">
                 {event.status === "closed" ? (
                   <p className="rounded-md bg-paper-sunk p-4 text-center text-sm font-medium text-ink/60">
@@ -128,7 +135,10 @@ export function EventModal({
                   <RsvpForm eventId={event.id} />
                 ) : (
                   <TicketForm
+                    key={event.id}
                     eventId={event.id}
+                    allowCompanion={event.allow_companion}
+                    spotsRemaining={event.spots_remaining}
                     isLoggedIn={isLoggedIn}
                     resolvedPrice={event.resolved_price}
                   />

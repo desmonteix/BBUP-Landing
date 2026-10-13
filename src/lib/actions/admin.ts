@@ -37,6 +37,9 @@ function parseEventForm(formData: FormData) {
     priceUsd: formData.get("priceUsd") || undefined,
     capacity: formData.get("capacity") || undefined,
     status: formData.get("status"),
+    allowCompanion: formData.get("allowCompanion") === "on",
+    promotions: formData.get("promotions") || "",
+    discounts: formData.get("discounts") || "",
   });
 }
 
@@ -65,6 +68,9 @@ export async function createEvent(
     price_usd: parsed.data.type === "paid" ? parsed.data.priceUsd : null,
     capacity: parsed.data.capacity ?? null,
     status: parsed.data.status,
+    allow_companion: parsed.data.allowCompanion,
+    promotions: parsed.data.promotions,
+    discounts: parsed.data.discounts,
   });
 
   if (error) {
@@ -108,6 +114,9 @@ export async function updateEvent(
       price_usd: parsed.data.type === "paid" ? parsed.data.priceUsd : null,
       capacity: parsed.data.capacity ?? null,
       status: parsed.data.status,
+      allow_companion: parsed.data.allowCompanion,
+      promotions: parsed.data.promotions,
+      discounts: parsed.data.discounts,
     })
     .eq("id", eventId);
 

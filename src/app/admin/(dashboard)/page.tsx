@@ -21,14 +21,14 @@ export default async function AdminDashboardPage() {
       .order("event_date", { ascending: false }),
     admin
       .from("registrations")
-      .select("event_id")
+      .select("event_id, ticket_quantity")
       .in("payment_status", ["n/a", "pending", "paid"]),
     getCurrentExchangeRate(),
   ]);
 
   const counts = new Map<string, number>();
   for (const r of regCounts ?? []) {
-    counts.set(r.event_id, (counts.get(r.event_id) ?? 0) + 1);
+    counts.set(r.event_id, (counts.get(r.event_id) ?? 0) + r.ticket_quantity);
   }
 
   return (
@@ -69,6 +69,7 @@ export default async function AdminDashboardPage() {
               <th className="px-4 py-3 font-semibold">Type</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold">Registered</th>
+              <th className="px-4 py-3 font-semibold">Configuración</th>
             </tr>
           </thead>
           <tbody>
@@ -91,11 +92,12 @@ export default async function AdminDashboardPage() {
                   {counts.get(event.id) ?? 0}
                   {event.capacity != null ? ` / ${event.capacity}` : ""}
                 </td>
+                <td className="px-4 py-3"><Link href={`/admin/events/${event.id}`} className="font-semibold text-pink hover:underline">Editar configuración</Link></td>
               </tr>
             ))}
             {(!events || events.length === 0) && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-ink/50">
+                <td colSpan={7} className="px-4 py-10 text-center text-ink/50">
                   No events yet — create your first one.
                 </td>
               </tr>

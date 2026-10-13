@@ -17,6 +17,8 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
         <thead className="border-b border-border bg-paper-sunk text-xs uppercase tracking-wide text-ink/50">
           <tr>
             <th className="px-4 py-3 font-semibold">Name</th>
+            <th className="px-4 py-3 font-semibold">+1</th>
+            <th className="px-4 py-3 font-semibold">Entradas</th>
             <th className="px-4 py-3 font-semibold">Email</th>
             <th className="px-4 py-3 font-semibold">Phone</th>
             <th className="px-4 py-3 font-semibold">Nationality</th>
@@ -30,6 +32,8 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
           {registrants.map((r) => (
             <tr key={r.id} className="border-b border-border last:border-0 hover:bg-paper-sunk/60">
               <td className="px-4 py-3 font-semibold text-ink">{r.name}</td>
+              <td className="px-4 py-3 text-ink/65">{r.companion_first_name ? `${r.companion_first_name} ${r.companion_last_name}` : "-"}</td>
+              <td className="px-4 py-3 text-ink/65">{r.ticket_quantity}</td>
               <td className="px-4 py-3 text-ink/65">{r.email}</td>
               <td className="px-4 py-3 text-ink/65">{r.phone ?? "—"}</td>
               <td className="px-4 py-3 text-ink/65">{r.nationality ?? "—"}</td>

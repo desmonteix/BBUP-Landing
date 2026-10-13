@@ -43,12 +43,14 @@ export async function submitRsvp(
   if (event.status !== "open") return { status: "error", message: "RSVPs are closed for this event." };
 
   if (event.capacity != null) {
-    const { count } = await admin
+    const { data: bookings, error: capacityError } = await admin
       .from("registrations")
-      .select("id", { count: "exact", head: true })
+      .select("ticket_quantity")
       .eq("event_id", event.id)
       .in("payment_status", ["n/a", "pending", "paid"]);
-    if (count != null && count >= event.capacity) {
+    if (capacityError) return { status: "error", message: "Could not check availability." };
+    const occupied = (bookings ?? []).reduce((sum, row) => sum + row.ticket_quantity, 0);
+    if (occupied + 1 > event.capacity) {
       return { status: "error", message: "This event just filled up." };
     }
   }
@@ -100,10 +102,11 @@ export type TicketIntentResult =
  * nationality lookup has something to resolve against.
  */
 export async function createTicketIntent(
-  eventId: string
+  eventId: string,
+  companion?: { firstName: string; lastName: string }
 ): Promise<TicketIntentResult> {
-  const parsed = ticketIntentSchema.safeParse({ eventId });
-  if (!parsed.success) return { ok: false, error: "Invalid event." };
+  const parsed = ticketIntentSchema.safeParse({ eventId, companion });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form." };
 
   const profile = await getCurrentProfile();
   if (!profile) return { ok: false, error: "Log in to buy a ticket." };
@@ -114,6 +117,10 @@ export async function createTicketIntent(
   if (event.type !== "paid") return { ok: false, error: "This event is free — use the RSVP form." };
   if (event.status !== "open") return { ok: false, error: "Ticket sales are closed for this event." };
 
+  if (parsed.data.companion && !event.allow_companion) {
+    return { ok: false, error: "This event does not allow a +1." };
+  }
+  const quantity = parsed.data.companion ? 2 : 1;
   const currentRate = await getCurrentExchangeRate();
   const price = resolvePriceForNationality(profile.nationality, event, currentRate);
   if (!price) {
@@ -127,14 +134,18 @@ export async function createTicketIntent(
   }
 
   const admin = createAdminClient();
+  const totalPen = Math.round(price.chargeAmountPen * quantity * 100) / 100;
+  const totalUsd = price.displayPriceUsd == null ? null : Math.round(price.displayPriceUsd * quantity * 100) / 100;
 
   if (event.capacity != null) {
-    const { count } = await admin
+    const { data: bookings, error: capacityError } = await admin
       .from("registrations")
-      .select("id", { count: "exact", head: true })
+      .select("ticket_quantity")
       .eq("event_id", event.id)
       .in("payment_status", ["n/a", "pending", "paid"]);
-    if (count != null && count >= event.capacity) {
+    if (capacityError) return { ok: false, error: "Could not check availability." };
+    const occupied = (bookings ?? []).reduce((sum, row) => sum + row.ticket_quantity, 0);
+    if (occupied + quantity > event.capacity) {
       return { ok: false, error: "This event just sold out." };
     }
   }
@@ -148,8 +159,11 @@ export async function createTicketIntent(
       email: profile.email,
       phone: null,
       kind: "ticket",
-      amount_pen: price.chargeAmountPen,
-      display_price_usd: price.displayPriceUsd,
+      ticket_quantity: quantity,
+      companion_first_name: parsed.data.companion?.firstName ?? null,
+      companion_last_name: parsed.data.companion?.lastName ?? null,
+      amount_pen: totalPen,
+      display_price_usd: totalUsd,
       exchange_rate_applied: price.exchangeRate,
       payment_status: "pending",
     })
@@ -165,8 +179,8 @@ export async function createTicketIntent(
 
   const preference = await createPaymentPreference({
     registrationId,
-    eventTitle: event.title,
-    amountPen: price.chargeAmountPen,
+    eventTitle: `${event.title} (${quantity} ticket${quantity === 1 ? "" : "s"})`,
+    amountPen: totalPen,
     payerEmail: profile.email,
     payerFirstName: profile.first_name,
     payerLastName: profile.last_name,
@@ -181,8 +195,8 @@ export async function createTicketIntent(
   return {
     ok: true,
     registrationId,
-    chargeAmountPen: price.chargeAmountPen,
-    displayPriceUsd: price.displayPriceUsd,
+    chargeAmountPen: totalPen,
+    displayPriceUsd: totalUsd,
     exchangeRate: price.exchangeRate,
     initPoint: preference.initPoint,
   };

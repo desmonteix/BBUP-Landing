@@ -20,7 +20,7 @@ export default async function AccountPage() {
   const supabase = await createClient();
   const { data: tickets } = await supabase
     .from("registrations")
-    .select("id, amount_pen, display_price_usd, payment_status, created_at, events(title, event_date)")
+    .select("id, amount_pen, display_price_usd, payment_status, created_at, ticket_quantity, companion_first_name, companion_last_name, events(title, event_date)")
     .eq("profile_id", profile.id)
     .eq("kind", "ticket")
     .order("created_at", { ascending: false });
@@ -78,6 +78,8 @@ export default async function AccountPage() {
                       <p className="font-display text-sm font-semibold text-ink">
                         {event?.title ?? "Event"}
                       </p>
+                      <p className="text-xs text-ink/55">{t.ticket_quantity} {t.ticket_quantity === 1 ? "entrada" : "entradas"}</p>
+                      {t.companion_first_name && <p className="text-xs text-ink/55">+1: {t.companion_first_name} {t.companion_last_name}</p>}
                       {event?.event_date && (
                         <p className="text-xs text-ink/55">{formatEventDate(event.event_date)}</p>
                       )}

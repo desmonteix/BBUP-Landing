@@ -17,13 +17,26 @@ export function TicketForm({
   eventId,
   isLoggedIn,
   resolvedPrice,
+  allowCompanion = false,
+  spotsRemaining = null,
 }: {
   eventId: string;
   isLoggedIn: boolean;
   resolvedPrice: ResolvedPrice | null;
+  allowCompanion?: boolean;
+  spotsRemaining?: number | null;
 }) {
   const [intent, setIntent] = useState<Intent>({ state: "idle" });
   const [pending, startTransition] = useTransition();
+  const [withCompanion, setWithCompanion] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const quantity = withCompanion ? 2 : 1;
+  const totalPrice = resolvedPrice ? {
+    ...resolvedPrice,
+    chargeAmountPen: Math.round(resolvedPrice.chargeAmountPen * quantity * 100) / 100,
+    displayPriceUsd: resolvedPrice.displayPriceUsd == null ? null : Math.round(resolvedPrice.displayPriceUsd * quantity * 100) / 100,
+  } : null;
 
   if (!isLoggedIn) {
     return (
@@ -52,25 +65,62 @@ export function TicketForm({
   const busy = pending || intent.state === "creating" || intent.state === "redirecting";
 
   return (
-    <div className="space-y-4">
-      {resolvedPrice && (
+    <form className="space-y-4" onSubmit={(e) => {
+      e.preventDefault();
+      if (busy) return;
+      startTransition(async () => {
+        setIntent({ state: "creating" });
+        try {
+          const result = await createTicketIntent(eventId, withCompanion ? { firstName, lastName } : undefined);
+          if (!result.ok) { setIntent({ state: "error", message: result.error }); return; }
+          setIntent({ state: "redirecting" });
+          window.location.href = result.initPoint;
+        } catch {
+          setIntent({ state: "error", message: "Could not prepare checkout. Please try again." });
+        }
+      });
+    }}>
+      {allowCompanion && (
+        <fieldset disabled={busy} className="space-y-3 rounded-md border border-border p-4">
+          <label className="flex items-center gap-3 text-sm font-semibold">
+            <input type="checkbox" checked={withCompanion} onChange={(e) => setWithCompanion(e.target.checked)}
+              disabled={spotsRemaining != null && spotsRemaining < 2} className="h-4 w-4 accent-pink" />
+            Llevo un +1 (acompañante)
+          </label>
+          <p className="text-xs text-ink/60">El +1 paga una entrada adicional al mismo precio que tu entrada.</p>
+          {spotsRemaining != null && spotsRemaining < 2 && <p className="text-xs text-ink/60">Solo queda un cupo disponible.</p>}
+          {withCompanion && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-semibold">Nombre del acompañante
+                <input name="companionFirstName" autoComplete="off" value={firstName} onChange={(e) => setFirstName(e.target.value)} required maxLength={100}
+                  className="mt-1 w-full rounded-sm border border-border px-3 py-2 font-normal outline-none focus-visible:border-pink" />
+              </label>
+              <label className="text-sm font-semibold">Apellido del acompañante
+                <input name="companionLastName" autoComplete="off" value={lastName} onChange={(e) => setLastName(e.target.value)} required maxLength={100}
+                  className="mt-1 w-full rounded-sm border border-border px-3 py-2 font-normal outline-none focus-visible:border-pink" />
+              </label>
+            </div>
+          )}
+        </fieldset>
+      )}
+      {totalPrice && (
         <div className="rounded-md border border-border bg-paper-sunk p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">
-            Your price
+            Total ({quantity} {quantity === 1 ? "entrada" : "entradas"})
           </p>
-          {resolvedPrice.displayPriceUsd != null && resolvedPrice.exchangeRate != null ? (
+          {totalPrice.displayPriceUsd != null && totalPrice.exchangeRate != null ? (
             <>
               <p className="mt-1 font-display text-2xl font-semibold text-ink">
-                {formatMoney(resolvedPrice.displayPriceUsd, "USD")}
+                {formatMoney(totalPrice.displayPriceUsd, "USD")}
               </p>
               <p className="mt-1 text-sm text-ink/70">
-                ≈ {formatMoney(resolvedPrice.chargeAmountPen, "PEN")} charged to your card
+                ≈ {formatMoney(totalPrice.chargeAmountPen, "PEN")} charged to your card
               </p>
               <p className="mt-1 text-xs text-ink/70">
                 Mercado Pago (our payment provider in Peru) only processes soles, so your card is
-                charged at our conversion rate of S/ {resolvedPrice.exchangeRate.toFixed(3)} per
+                charged at our conversion rate of S/ {totalPrice.exchangeRate.toFixed(3)} per
                 US$
-                {resolvedPrice.includesMargin
+                {totalPrice.includesMargin
                   ? ": Peru's official BCRP rate plus a small margin covering payment costs."
                   : ", set by hand by our team."}{" "}
                 Your bank then converts that to your own currency at its own rate, and may add a
@@ -79,27 +129,15 @@ export function TicketForm({
             </>
           ) : (
             <p className="mt-1 font-display text-2xl font-semibold text-ink">
-              {formatMoney(resolvedPrice.chargeAmountPen, "PEN")}
+              {formatMoney(totalPrice.chargeAmountPen, "PEN")}
             </p>
           )}
         </div>
       )}
 
       <button
-        type="button"
-        disabled={busy}
-        onClick={() =>
-          startTransition(async () => {
-            setIntent({ state: "creating" });
-            const result = await createTicketIntent(eventId);
-            if (!result.ok) {
-              setIntent({ state: "error", message: result.error });
-              return;
-            }
-            setIntent({ state: "redirecting" });
-            window.location.href = result.initPoint;
-          })
-        }
+        type="submit"
+        disabled={busy || !resolvedPrice}
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-buddy px-6 py-3 font-display font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-60"
       >
         {intent.state === "redirecting" ? (
@@ -123,6 +161,6 @@ export function TicketForm({
           {intent.message}
         </p>
       )}
-    </div>
+    </form>
   );
 }

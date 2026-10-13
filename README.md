@@ -33,7 +33,8 @@ npm install
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run `supabase/migrations/0001_init.sql` then
-   `supabase/migrations/0002_mercadopago_and_exchange_rates.sql` in order
+   `supabase/migrations/0002_mercadopago_and_exchange_rates.sql`, then
+   `supabase/migrations/0003_event_companions_and_offers.sql` in order
    (schema, RLS policies, the `admin_registrants` view, the `exchange_rates`
    table).
 3. **Expose the `pagina_web` schema.** All app tables live in a custom
@@ -223,3 +224,22 @@ npm run placeholders  # regenerate the SVG placeholder images in public/images
 - Team members and testimonials are static content in `src/lib/content.ts`
   (the spec's data model has no DB table for them) — edit that file
   directly until/unless that needs to move into Supabase.
+
+## Event configuration and +1 purchases
+
+Apply migration `0003_event_companions_and_offers.sql` before running this version.
+In `/admin`, choose **Editar configuracion** to edit an existing event. Creation
+and editing share the same form, including the +1 switch and the **Promociones**
+and **Descuentos** text fields. These texts are displayed in the public event
+modal; they do not automatically change checkout prices or expire on a schedule.
+
+Paid events can optionally allow a named companion. Both first and last name are
+required. The buyer pays two entries at their own profile's unit price (including
+the same USD-to-PEN conversion when applicable). One registration stores the two
+attendees and the total charge, so Mercado Pago settles both together. Capacity,
+admin counts, account details and receipts include the companion. Existing
+registrations remain one entry; existing events disable +1 by default.
+
+The migration serializes new reservations per event to prevent concurrent
+purchases exceeding capacity. Pending bookings reserve seats, as before. Free
+RSVPs continue to register one person.

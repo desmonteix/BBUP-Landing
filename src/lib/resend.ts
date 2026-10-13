@@ -149,6 +149,8 @@ export async function sendTicketReceipt(params: {
   /** The USD -> PEN rate used at charge time, for the same reason. */
   exchangeRateApplied: number | null;
   paymentId: string;
+  ticketQuantity?: number;
+  companionName?: string | null;
 }) {
   const resend = getResendClient();
   if (!resend) return;
@@ -171,6 +173,8 @@ export async function sendTicketReceipt(params: {
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Date</td><td>${formatEventDate(params.eventDate)} · ${formatEventTime(params.eventDate)}</td></tr>
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Location</td><td>${escapeHtml(params.location)}</td></tr>
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Amount charged</td><td>${formatMoney(params.amountPen, "PEN")}</td></tr>
+            <tr><td>Tickets</td><td>${params.ticketQuantity ?? 1}</td></tr>
+            ${params.companionName ? `<tr><td>+1</td><td>${escapeHtml(params.companionName)}</td></tr>` : ""}
             ${usdLine}
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Payment ID</td><td>${escapeHtml(params.paymentId)}</td></tr>
           </table>

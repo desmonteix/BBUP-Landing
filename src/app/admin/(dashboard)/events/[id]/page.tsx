@@ -21,7 +21,7 @@ export default async function EditEventPage({
   const { data: event } = await admin
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, created_at"
     )
     .eq("id", id)
     .maybeSingle();

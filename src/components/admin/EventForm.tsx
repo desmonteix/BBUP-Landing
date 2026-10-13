@@ -155,6 +155,23 @@ export function EventForm({
         />
       </div>
 
+      <fieldset className="space-y-4 rounded-md border border-border p-4">
+        <legend className="px-2 text-sm font-semibold">Configuración del evento</legend>
+        <label className="flex items-center gap-3 text-sm font-semibold">
+          <input type="checkbox" name="allowCompanion" defaultChecked={event?.allow_companion ?? false} className="h-4 w-4 accent-pink" />
+          Permitir +1 (acompañante)
+        </label>
+        <p className="text-xs text-ink/60">En compras de entradas, el +1 ocupa un cupo y paga una entrada adicional al precio del comprador.</p>
+        {([['promotions', 'Promociones'], ['discounts', 'Descuentos']] as const).map(([name, label]) => (
+          <div key={name}>
+            <Label htmlFor={name}>{label}</Label>
+            <textarea id={name} name={name} defaultValue={event?.[name] ?? ""} rows={3} maxLength={2000}
+              className="w-full rounded-sm border border-border bg-white px-4 py-2.5 text-sm text-ink outline-none focus-visible:border-pink" />
+          </div>
+        ))}
+        <p className="text-xs text-ink/60">Estos textos se muestran en el evento. No modifican automáticamente el precio de las entradas.</p>
+      </fieldset>
+
       {state.status === "error" && (
         <p className="text-sm font-semibold text-error" role="alert">
           {state.message}

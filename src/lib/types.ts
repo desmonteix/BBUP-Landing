@@ -84,6 +84,9 @@ export interface EventRow {
   capacity: number | null;
   status: EventStatus;
   category: EventCategory;
+  allow_companion: boolean;
+  promotions: string;
+  discounts: string;
   created_at: string;
 }
 
@@ -103,6 +106,9 @@ export interface PublicEvent {
   spots_remaining: number | null;
   status: EventStatus;
   category: EventCategory;
+  allow_companion: boolean;
+  promotions: string;
+  discounts: string;
   /** Only ever populated server-side for the currently authenticated
    * viewer, resolved from THEIR OWN nationality. Exactly one price. */
   resolved_price: ResolvedPrice | null;
@@ -140,6 +146,9 @@ export interface Registration {
   email: string;
   phone: string | null;
   kind: RegistrationKind;
+  ticket_quantity: number;
+  companion_first_name: string | null;
+  companion_last_name: string | null;
   amount_pen: number | null;
   display_price_usd: number | null;
   exchange_rate_applied: number | null;
