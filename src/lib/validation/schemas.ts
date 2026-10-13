@@ -62,6 +62,7 @@ export const rsvpSchema = z.object({
 export const ticketIntentSchema = z.object({
   eventId: z.string().uuid(),
   accepted: z.literal(true, { errorMap: () => ({ message: "Accept the event terms and conditions before buying." }) }),
+  expectedAmountPen: z.number().nonnegative().optional(),
   version: z.string().regex(/^[a-f0-9]{64}$/, "Reload the event and accept its terms."),
   companion: z.object({
     firstName: z.string().trim().min(1, "Companion first name is required").max(100),
@@ -71,6 +72,18 @@ export const ticketIntentSchema = z.object({
 
 export const newsletterSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
+});
+
+const offerWindow = {
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+};
+export const offerRulesSchema = z.object({
+  promotion: z.object({ ...offerWindow, type: z.literal("two_for_one") })
+    .refine((data) => Date.parse(data.endsAt) > Date.parse(data.startsAt), "Promotion end must be after its start.").optional(),
+  discount: z.object({ ...offerWindow, type: z.enum(["percentage", "fixed"]), value: z.number().positive().max(999999) })
+    .refine((data) => data.type !== "percentage" || data.value <= 100, "Percentage discounts cannot exceed 100%.")
+    .refine((data) => Date.parse(data.endsAt) > Date.parse(data.startsAt), "Discount end must be after its start.").optional(),
 });
 
 export const eventFormSchema = z
@@ -95,12 +108,16 @@ export const eventFormSchema = z
     allowCompanion: z.boolean().default(false),
     promotions: z.string().trim().max(2000).default(""),
     discounts: z.string().trim().max(2000).default(""),
+    offerRules: offerRulesSchema.default({}),
     termsText: z.string().trim().max(20000).default(""),
     termsUrl: z.string().trim().max(2000).refine((value) => {
       if (!value) return true;
       try { return ["http:", "https:"].includes(new URL(value).protocol); }
       catch { return false; }
     }, "Use an HTTP or HTTPS link for the terms.").default(""),
+  })
+  .refine((data) => !data.offerRules.promotion || (data.type === "paid" && data.allowCompanion), {
+    message: "Enable +1 on a paid event to offer 2x1.", path: ["offerRules"],
   })
   .refine((data) => data.type === "free" || Boolean(data.termsText || data.termsUrl), {
     message: "Paid events require terms and conditions as text or a link.",

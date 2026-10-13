@@ -16,6 +16,8 @@ export function EventForm({
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [type, setType] = useState<"free" | "paid">(event?.type ?? "free");
+  const [promotionType, setPromotionType] = useState(event?.offer_rules?.promotion?.type ?? "none");
+  const [discountType, setDiscountType] = useState(event?.offer_rules?.discount?.type ?? "none");
 
   return (
     <form action={formAction} className="space-y-5">
@@ -161,15 +163,42 @@ export function EventForm({
           <input type="checkbox" name="allowCompanion" defaultChecked={event?.allow_companion ?? false} className="h-4 w-4 accent-pink" />
           Permitir +1 (acompañante)
         </label>
-        <p className="text-xs text-ink/60">En compras de entradas, el +1 ocupa un cupo y paga una entrada adicional al precio del comprador.</p>
-        {([['promotions', 'Promociones'], ['discounts', 'Descuentos']] as const).map(([name, label]) => (
-          <div key={name}>
-            <Label htmlFor={name}>{label}</Label>
-            <textarea id={name} name={name} defaultValue={event?.[name] ?? ""} rows={3} maxLength={2000}
-              className="w-full rounded-sm border border-border bg-white px-4 py-2.5 text-sm text-ink outline-none focus-visible:border-pink" />
+        <p className="text-xs text-ink/60">El +1 ocupa un cupo adicional y se incluye en el cálculo del total.</p>
+        {type === "paid" && (
+          <div className="space-y-5">
+            <fieldset className="space-y-3">
+              <legend className="mb-2 text-sm font-semibold">Promociones</legend>
+              <Label htmlFor="promotionType">Tipo de promoción</Label>
+              <Select id="promotionType" name="promotionType" value={promotionType} onChange={(e) => setPromotionType(e.target.value)}>
+                <option value="none">Sin promoción</option>
+                <option value="two_for_one">2x1: dos entradas por el precio de una</option>
+              </Select>
+              {promotionType === "two_for_one" && <>
+                <p className="text-xs text-ink/60">Requiere permitir +1. La compra ocupa dos cupos.</p>
+                <OfferDates prefix="promotion" startsAt={event?.offer_rules?.promotion?.startsAt} endsAt={event?.offer_rules?.promotion?.endsAt} />
+              </>}
+              <Label htmlFor="promotions">Descripción de la promoción (opcional)</Label>
+              <textarea id="promotions" name="promotions" defaultValue={event?.promotions ?? ""} rows={2} maxLength={2000} className="w-full rounded-sm border border-border px-4 py-2.5 text-sm outline-none focus-visible:border-pink" />
+            </fieldset>
+            <fieldset className="space-y-3">
+              <legend className="mb-2 text-sm font-semibold">Descuentos</legend>
+              <Label htmlFor="discountType">Tipo de descuento</Label>
+              <Select id="discountType" name="discountType" value={discountType} onChange={(e) => setDiscountType(e.target.value)}>
+                <option value="none">Sin descuento</option>
+                <option value="percentage">Porcentaje del total</option>
+                <option value="fixed">Importe fijo en soles por compra</option>
+              </Select>
+              {discountType !== "none" && <>
+                <Label htmlFor="discountValue">{discountType === "percentage" ? "Porcentaje (%)" : "Importe por compra (PEN)"}</Label>
+                <Input id="discountValue" name="discountValue" type="number" min="0.01" max={discountType === "percentage" ? 100 : 999999} step="0.01" required defaultValue={event?.offer_rules?.discount?.value} />
+                <OfferDates prefix="discount" startsAt={event?.offer_rules?.discount?.startsAt} endsAt={event?.offer_rules?.discount?.endsAt} />
+              </>}
+              <Label htmlFor="discounts">Descripción del descuento (opcional)</Label>
+              <textarea id="discounts" name="discounts" defaultValue={event?.discounts ?? ""} rows={2} maxLength={2000} className="w-full rounded-sm border border-border px-4 py-2.5 text-sm outline-none focus-visible:border-pink" />
+            </fieldset>
+            <p className="text-xs text-ink/60">Las ofertas modifican el cobro durante su vigencia. No se acumulan: se aplica la opción más barata. Los importes fijos se descuentan una vez por compra y el total nunca es negativo.</p>
           </div>
-        ))}
-        <p className="text-xs text-ink/60">Estos textos se muestran en el evento. No modifican automáticamente el precio de las entradas.</p>
+        )}
       </fieldset>
 
       <fieldset className="space-y-4 rounded-md border border-border p-4">
@@ -206,6 +235,15 @@ export function EventForm({
       </button>
     </form>
   );
+}
+
+function OfferDates({ prefix, startsAt, endsAt }: { prefix: string; startsAt?: string; endsAt?: string }) {
+  // Explicit Peru time; independent of the organizer's browser timezone.
+  const local = (iso?: string) => iso ? new Date(new Date(iso).getTime() - 5 * 3600000).toISOString().slice(0, 16) : "";
+  return <div className="grid gap-3 sm:grid-cols-2">
+    <div><Label htmlFor={`${prefix}StartsAt`}>Inicio (hora de Perú)</Label><Input id={`${prefix}StartsAt`} name={`${prefix}StartsAt`} type="datetime-local" required defaultValue={local(startsAt)} /></div>
+    <div><Label htmlFor={`${prefix}EndsAt`}>Fin (hora de Perú)</Label><Input id={`${prefix}EndsAt`} name={`${prefix}EndsAt`} type="datetime-local" required defaultValue={local(endsAt)} /></div>
+  </div>;
 }
 
 function toDatetimeLocal(iso: string): string {

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { ExternalLink, LogIn, ShieldCheck } from "lucide-react";
 import { createTicketIntent } from "@/lib/actions/registrations";
 import { formatMoney } from "@/lib/money";
-import type { ResolvedPrice } from "@/lib/types";
+import { quoteTickets } from "@/lib/offers";
+import type { OfferRules, ResolvedPrice } from "@/lib/types";
 
 type Intent =
   | { state: "idle" }
@@ -22,6 +23,7 @@ export function TicketForm({
   termsText,
   termsUrl,
   termsVersion,
+  offerRules = {},
 }: {
   eventId: string;
   isLoggedIn: boolean;
@@ -31,6 +33,7 @@ export function TicketForm({
   termsText: string;
   termsUrl: string;
   termsVersion: string;
+  offerRules?: OfferRules;
 }) {
   const [intent, setIntent] = useState<Intent>({ state: "idle" });
   const [pending, startTransition] = useTransition();
@@ -40,11 +43,12 @@ export function TicketForm({
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const hasTerms = Boolean(termsText || termsUrl);
   const quantity = withCompanion ? 2 : 1;
-  const totalPrice = resolvedPrice ? {
-    ...resolvedPrice,
-    chargeAmountPen: Math.round(resolvedPrice.chargeAmountPen * quantity * 100) / 100,
-    displayPriceUsd: resolvedPrice.displayPriceUsd == null ? null : Math.round(resolvedPrice.displayPriceUsd * quantity * 100) / 100,
-  } : null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const totalPrice = resolvedPrice ? quoteTickets(resolvedPrice, quantity, offerRules, now) : null;
 
   if (!isLoggedIn) {
     return (
@@ -79,7 +83,7 @@ export function TicketForm({
       startTransition(async () => {
         setIntent({ state: "creating" });
         try {
-          const result = await createTicketIntent(eventId, withCompanion ? { firstName, lastName } : undefined, { accepted: acceptedTerms, version: termsVersion });
+          const result = await createTicketIntent(eventId, withCompanion ? { firstName, lastName } : undefined, { accepted: acceptedTerms, version: termsVersion, expectedAmountPen: totalPrice?.chargeAmountPen });
           if (!result.ok) { setIntent({ state: "error", message: result.error }); return; }
           setIntent({ state: "redirecting" });
           window.location.href = result.initPoint;
@@ -95,7 +99,7 @@ export function TicketForm({
               disabled={spotsRemaining != null && spotsRemaining < 2} className="h-4 w-4 accent-pink" />
             Llevo un +1 (acompañante)
           </label>
-          <p className="text-xs text-ink/60">El +1 paga una entrada adicional al mismo precio que tu entrada.</p>
+          <p className="text-xs text-ink/60">El +1 ocupa una entrada adicional. Las promociones y descuentos vigentes se reflejan en el total.</p>
           {spotsRemaining != null && spotsRemaining < 2 && <p className="text-xs text-ink/60">Solo queda un cupo disponible.</p>}
           {withCompanion && (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -155,25 +159,33 @@ export function TicketForm({
         </fieldset>
       ) : <p role="status" className="text-sm text-ink/65">La compra estará disponible cuando el organizador publique los términos y condiciones.</p>}
 
+      {totalPrice && totalPrice.savingsPen > 0 && (
+        <div className="rounded-md bg-paper-sunk p-4 text-sm" aria-live="polite">
+          <p>Precio original: <span className="line-through">{formatMoney(totalPrice.subtotalPen, "PEN")}</span></p>
+          <p className="font-semibold text-pink">{totalPrice.appliedOffer}: ahorras {formatMoney(totalPrice.savingsPen, "PEN")}</p>
+          <p className="mt-1 text-xs text-ink/60">Se aplica una sola oferta: la que deja el menor precio.</p>
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={busy || !resolvedPrice || !acceptedTerms || !hasTerms}
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-buddy px-6 py-3 font-display font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-60"
       >
         {intent.state === "redirecting" ? (
-          "Taking you to Mercado Pago…"
+          totalPrice?.chargeAmountPen === 0 ? "Confirmando entradas…" : "Taking you to Mercado Pago…"
         ) : intent.state === "creating" || pending ? (
           "Preparing checkout…"
         ) : (
           <>
-            Continue to payment
+            {totalPrice?.chargeAmountPen === 0 ? "Confirmar entradas sin pago" : "Continue to payment"}
             <ExternalLink size={16} />
           </>
         )}
       </button>
       <p className="flex items-center justify-center gap-1.5 text-xs text-ink/70">
         <ShieldCheck size={14} />
-        Secured by Mercado Pago — your card details never touch our servers.
+        {totalPrice?.chargeAmountPen === 0 ? "No se requiere pago." : "Secured by Mercado Pago — your card details never touch our servers."}
       </p>
 
       {intent.state === "error" && (

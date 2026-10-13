@@ -4,7 +4,7 @@ vi.mock("@/lib/auth", () => ({ getCurrentProfile: mocks.profile }));
 vi.mock("@/lib/db/events", () => ({ getEventRowById: mocks.event }));
 vi.mock("@/lib/exchangeRate", () => ({ getCurrentExchangeRate: mocks.rate }));
 vi.mock("@/lib/mercadopago", () => ({ createPaymentPreference: mocks.preference, getSiteUrl: () => "http://localhost:3000" }));
-vi.mock("@/lib/resend", () => ({ sendRsvpConfirmation: vi.fn() }));
+vi.mock("@/lib/resend", () => ({ sendRsvpConfirmation: vi.fn(), sendTicketReceipt: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () => ({
   select: () => ({ eq: () => ({ in: mocks.bookings }) }),
@@ -102,5 +102,36 @@ describe("event terms acceptance", () => {
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({
       terms_accepted_at: expect.any(String), terms_text_snapshot: "No refunds", terms_url_snapshot: "",
     }));
+  });
+});
+
+describe("automatic offer checkout", () => {
+  const window = { startsAt: "2000-01-01T00:00:00Z", endsAt: "2100-01-01T00:00:00Z" };
+  it("charges 2x1 in Mercado Pago without stacking an active percentage discount", async () => {
+    mocks.event.mockResolvedValue({ ...event, offer_rules: { promotion: { type: "two_for_one", ...window }, discount: { type: "percentage", value: 20, ...window } } });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 90 });
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 90 }));
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, amount_pen: 90, pricing_snapshot: { subtotalPen: 180, savingsPen: 90, appliedOffer: "2x1" } }));
+  });
+  it("charges a better percentage discount instead of 2x1", async () => {
+    mocks.event.mockResolvedValue({ ...event, offer_rules: { promotion: { type: "two_for_one", ...window }, discount: { type: "percentage", value: 60, ...window } } });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 72 });
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 72 }));
+  });
+  it("applies fixed discounts to the converted PEN price for international buyers", async () => {
+    mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
+    mocks.event.mockResolvedValue({ ...event, offer_rules: { discount: { type: "fixed", value: 35, ...window } } });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 175, displayPriceUsd: 50 });
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 175 }));
+  });
+  it("does not send a different total than the buyer saw to Mercado Pago", async () => {
+    expect(await createTicketIntent(eventId, companion, { ...consent, expectedAmountPen: 90 })).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("confirms fully discounted entries without calling Mercado Pago with zero", async () => {
+    mocks.event.mockResolvedValue({ ...event, offer_rules: { discount: { type: "percentage", value: 100, ...window } } });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 0, initPoint: "/checkout/return?registration_id=booking" });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ payment_status: "paid", ticket_quantity: 2, amount_pen: 0 }));
+    expect(mocks.preference).not.toHaveBeenCalled();
   });
 });

@@ -141,6 +141,7 @@ export function EventModal({
                     spotsRemaining={event.spots_remaining}
                     isLoggedIn={isLoggedIn}
                     resolvedPrice={event.resolved_price}
+                    offerRules={event.offer_rules}
                     termsText={event.terms_text}
                     termsUrl={event.terms_url}
                     termsVersion={event.terms_version}

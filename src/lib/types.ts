@@ -68,6 +68,12 @@ export interface Profile {
 export type EventType = "free" | "paid";
 export type EventStatus = "open" | "closed";
 
+export interface OfferWindow { startsAt: string; endsAt: string }
+export interface OfferRules {
+  promotion?: OfferWindow & { type: "two_for_one" };
+  discount?: OfferWindow & { type: "percentage" | "fixed"; value: number };
+}
+
 /** Full row shape — server-only (admin panel, DB access layer). Never send
  * this whole object to a non-admin client for a paid event. */
 export interface EventRow {
@@ -87,6 +93,7 @@ export interface EventRow {
   allow_companion: boolean;
   promotions: string;
   discounts: string;
+  offer_rules: OfferRules;
   terms_text: string;
   terms_url: string;
   created_at: string;
@@ -111,6 +118,7 @@ export interface PublicEvent {
   allow_companion: boolean;
   promotions: string;
   discounts: string;
+  offer_rules: OfferRules;
   terms_text: string;
   terms_url: string;
   /** Only ever populated server-side for the currently authenticated
@@ -152,6 +160,7 @@ export interface Registration {
   phone: string | null;
   kind: RegistrationKind;
   ticket_quantity: number;
+  pricing_snapshot: { subtotalPen: number; savingsPen: number; appliedOffer: string | null } | null;
   terms_accepted_at: string | null;
   terms_text_snapshot: string | null;
   terms_url_snapshot: string | null;

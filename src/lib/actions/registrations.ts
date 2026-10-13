@@ -8,8 +8,9 @@ import { resolvePriceForNationality } from "@/lib/pricing";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createPaymentPreference, getSiteUrl } from "@/lib/mercadopago";
 import { rsvpSchema, ticketIntentSchema } from "@/lib/validation/schemas";
-import { sendRsvpConfirmation } from "@/lib/resend";
+import { sendRsvpConfirmation, sendTicketReceipt } from "@/lib/resend";
 import { termsVersion } from "@/lib/terms";
+import { quoteTickets } from "@/lib/offers";
 
 export type RsvpState = {
   status: "idle" | "success" | "error";
@@ -105,9 +106,9 @@ export type TicketIntentResult =
 export async function createTicketIntent(
   eventId: string,
   companion?: { firstName: string; lastName: string },
-  consent?: { accepted: boolean; version: string }
+  consent?: { accepted: boolean; version: string; expectedAmountPen?: number }
 ): Promise<TicketIntentResult> {
-  const parsed = ticketIntentSchema.safeParse({ eventId, companion, accepted: consent?.accepted, version: consent?.version });
+  const parsed = ticketIntentSchema.safeParse({ eventId, companion, accepted: consent?.accepted, version: consent?.version, expectedAmountPen: consent?.expectedAmountPen });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form." };
 
   const profile = await getCurrentProfile();
@@ -142,8 +143,12 @@ export async function createTicketIntent(
   }
 
   const admin = createAdminClient();
-  const totalPen = Math.round(price.chargeAmountPen * quantity * 100) / 100;
-  const totalUsd = price.displayPriceUsd == null ? null : Math.round(price.displayPriceUsd * quantity * 100) / 100;
+  const quote = quoteTickets(price, quantity, event.offer_rules);
+  const totalPen = quote.chargeAmountPen;
+  const totalUsd = quote.displayPriceUsd;
+  if (parsed.data.expectedAmountPen != null && Math.round(parsed.data.expectedAmountPen * 100) !== Math.round(totalPen * 100)) {
+    return { ok: false, error: "The price or offer changed. Reload the event to see the current total before buying." };
+  }
 
   if (event.capacity != null) {
     const { data: bookings, error: capacityError } = await admin
@@ -168,6 +173,7 @@ export async function createTicketIntent(
       phone: null,
       kind: "ticket",
       ticket_quantity: quantity,
+      pricing_snapshot: { subtotalPen: quote.subtotalPen, savingsPen: quote.savingsPen, appliedOffer: quote.appliedOffer },
       terms_accepted_at: new Date().toISOString(),
       terms_text_snapshot: event.terms_text,
       terms_url_snapshot: event.terms_url,
@@ -176,7 +182,7 @@ export async function createTicketIntent(
       amount_pen: totalPen,
       display_price_usd: totalUsd,
       exchange_rate_applied: price.exchangeRate,
-      payment_status: "pending",
+      payment_status: totalPen === 0 ? "paid" : "pending",
     })
     .select("id")
     .single();
@@ -187,6 +193,16 @@ export async function createTicketIntent(
   }
 
   const registrationId = data.id as string;
+
+  if (totalPen === 0) {
+    await sendTicketReceipt({ to: profile.email, name: `${profile.first_name} ${profile.last_name}`,
+      eventTitle: event.title, eventDate: event.event_date, location: event.location,
+      amountPen: 0, displayPriceUsd: totalUsd, exchangeRateApplied: price.exchangeRate,
+      paymentId: "No payment required", ticketQuantity: quantity,
+      companionName: parsed.data.companion ? `${parsed.data.companion.firstName} ${parsed.data.companion.lastName}` : null });
+    return { ok: true, registrationId, chargeAmountPen: 0, displayPriceUsd: totalUsd,
+      exchangeRate: price.exchangeRate, initPoint: `/checkout/return?registration_id=${registrationId}` };
+  }
 
   const preference = await createPaymentPreference({
     registrationId,

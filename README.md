@@ -35,7 +35,8 @@ npm install
 2. In the SQL editor, run `supabase/migrations/0001_init.sql` then
    `supabase/migrations/0002_mercadopago_and_exchange_rates.sql`, then
    `supabase/migrations/0003_event_companions_and_offers.sql`, then
-   `supabase/migrations/0004_event_terms_and_acceptance.sql` in order
+   `supabase/migrations/0004_event_terms_and_acceptance.sql`, then
+   `supabase/migrations/0005_automatic_event_offers.sql` in order
    (schema, RLS policies, the `admin_registrants` view, the `exchange_rates`
    table).
 3. **Expose the `pagina_web` schema.** All app tables live in a custom
@@ -231,11 +232,11 @@ npm run placeholders  # regenerate the SVG placeholder images in public/images
 Apply migration `0003_event_companions_and_offers.sql` before running this version.
 In `/admin`, choose **Editar configuracion** to edit an existing event. Creation
 and editing share the same form, including the +1 switch and the **Promociones**
-and **Descuentos** text fields. These texts are displayed in the public event
-modal; they do not automatically change checkout prices or expire on a schedule.
+and **Descuentos** text fields. Descriptions are displayed in the public event modal. The promotion and discount
+controls configure the rules that change checkout prices during their schedules.
 
 Paid events can optionally allow a named companion. Both first and last name are
-required. The buyer pays two entries at their own profile's unit price (including
+required. Before offers, the buyer pays two entries at their own profile's unit price (including
 the same USD-to-PEN conversion when applicable). One registration stores the two
 attendees and the total charge, so Mercado Pago settles both together. Capacity,
 admin counts, account details and receipts include the companion. Existing
@@ -260,3 +261,24 @@ timestamp. A database trigger also checks the snapshot against the locked event
 row to handle an organizer editing terms during checkout. For linked documents,
 the snapshot records the URL, not the remote document contents; use a new URL for
 a new document version. Free RSVPs do not require purchase consent.
+
+## Automatic promotions and discounts
+
+Apply migration `0005_automatic_event_offers.sql` after 0004. Event creation and
+editing support scheduled 2x1 promotions, percentage discounts (up to 100%), and
+fixed discounts in PEN once per order. Offer schedules use Peru time (UTC-5).
+Start is inclusive and end is exclusive. 2x1 requires +1 permission and a purchase
+of two tickets; both attendees occupy capacity even when only one is charged.
+
+Promotions and discounts never stack. The server compares their totals against
+the original purchase subtotal and applies only the cheapest. The checkout preview
+uses the same cents-based function and shows the original total, saving and applied
+offer. If the price changes before submission, checkout asks the buyer to reload
+rather than silently charging a different total. Fixed discounts are applied to
+the PEN total after the buyer's nationality conversion. Existing text descriptions
+remain notes; configure the numeric rules explicitly to activate them.
+
+The purchase stores its original subtotal, saving and selected offer in
+`pricing_snapshot`. Historic pending payments retain their recorded amount.
+Fully discounted purchases are confirmed directly with a receipt; no zero-value
+payment is sent to Mercado Pago. Capacity checks and terms acceptance still apply.

@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { termsVersion } from "@/lib/terms";
 
 const PUBLIC_COLUMNS =
-  "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, terms_text, terms_url, created_at";
+  "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at";
 
 /**
  * Fetches events and maps each row down to `PublicEvent` — the shape that
@@ -59,7 +59,7 @@ export async function getEventRowBySlug(
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, terms_text, terms_url, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -78,7 +78,7 @@ export async function getEventRowById(
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, terms_text, terms_url, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -121,6 +121,7 @@ export function toPublicEvent(
     allow_companion: row.allow_companion,
     promotions: row.promotions,
     discounts: row.discounts,
+    offer_rules: row.offer_rules,
     terms_text: row.terms_text,
     terms_url: row.terms_url,
     terms_version: termsVersion(row.terms_text, row.terms_url),

@@ -24,6 +24,11 @@ async function assertAdmin() {
 }
 
 function parseEventForm(formData: FormData) {
+  // Offer schedules use Peru time explicitly, including when deployed in UTC.
+  const date = (name: string) => `${formData.get(name) ?? ""}:00-05:00`;
+  const paid = formData.get("type") === "paid";
+  const promotionType = formData.get("promotionType");
+  const discountType = formData.get("discountType");
   return eventFormSchema.safeParse({
     title: formData.get("title"),
     slug: formData.get("slug"),
@@ -40,6 +45,10 @@ function parseEventForm(formData: FormData) {
     allowCompanion: formData.get("allowCompanion") === "on",
     promotions: formData.get("promotions") || "",
     discounts: formData.get("discounts") || "",
+    offerRules: {
+      promotion: paid && promotionType === "two_for_one" ? { type: promotionType, startsAt: date("promotionStartsAt"), endsAt: date("promotionEndsAt") } : undefined,
+      discount: paid && (discountType === "percentage" || discountType === "fixed") ? { type: discountType, value: Number(formData.get("discountValue")), startsAt: date("discountStartsAt"), endsAt: date("discountEndsAt") } : undefined,
+    },
     termsText: formData.get("termsText") || "",
     termsUrl: formData.get("termsUrl") || "",
   });
@@ -73,6 +82,7 @@ export async function createEvent(
     allow_companion: parsed.data.allowCompanion,
     promotions: parsed.data.promotions,
     discounts: parsed.data.discounts,
+    offer_rules: parsed.data.offerRules,
     terms_text: parsed.data.termsText,
     terms_url: parsed.data.termsUrl,
   });
@@ -121,6 +131,7 @@ export async function updateEvent(
       allow_companion: parsed.data.allowCompanion,
       promotions: parsed.data.promotions,
       discounts: parsed.data.discounts,
+      offer_rules: parsed.data.offerRules,
       terms_text: parsed.data.termsText,
       terms_url: parsed.data.termsUrl,
     })
