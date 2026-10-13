@@ -6,7 +6,7 @@ import { ExternalLink, LogIn, ShieldCheck } from "lucide-react";
 import { createTicketIntent } from "@/lib/actions/registrations";
 import { formatMoney } from "@/lib/money";
 import { quoteTickets } from "@/lib/offers";
-import type { OfferRules, ResolvedPrice } from "@/lib/types";
+import type { OfferRules, ResolvedPrice, PromotionExchangeRate } from "@/lib/types";
 
 type Intent =
   | { state: "idle" }
@@ -24,6 +24,7 @@ export function TicketForm({
   termsUrl,
   termsVersion,
   offerRules = {},
+  promotionExchangeRate = null,
 }: {
   eventId: string;
   isLoggedIn: boolean;
@@ -34,6 +35,7 @@ export function TicketForm({
   termsUrl: string;
   termsVersion: string;
   offerRules?: OfferRules;
+  promotionExchangeRate?: PromotionExchangeRate | null;
 }) {
   const [intent, setIntent] = useState<Intent>({ state: "idle" });
   const [pending, startTransition] = useTransition();
@@ -48,7 +50,7 @@ export function TicketForm({
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  const totalPrice = resolvedPrice ? quoteTickets(resolvedPrice, quantity, offerRules, now) : null;
+  const totalPrice = resolvedPrice ? quoteTickets(resolvedPrice, quantity, offerRules, now, promotionExchangeRate) : null;
 
   if (!isLoggedIn) {
     return (
@@ -79,7 +81,7 @@ export function TicketForm({
   return (
     <form className="space-y-4" onSubmit={(e) => {
       e.preventDefault();
-      if (busy || !acceptedTerms || !hasTerms) return;
+      if (busy || !acceptedTerms || !hasTerms || !totalPrice?.available) return;
       startTransition(async () => {
         setIntent({ state: "creating" });
         try {
@@ -115,12 +117,19 @@ export function TicketForm({
           )}
         </fieldset>
       )}
-      {totalPrice && (
+      {totalPrice && !totalPrice.available && <p role="status" className="text-sm text-ink/65">El tipo de cambio de la promoción no está disponible temporalmente. Vuelve a intentarlo en unos minutos.</p>}
+      {totalPrice?.available && (
         <div className="rounded-md border border-border bg-paper-sunk p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">
             Total ({quantity} {quantity === 1 ? "entrada" : "entradas"})
           </p>
-          {totalPrice.displayPriceUsd != null && totalPrice.exchangeRate != null ? (
+          {totalPrice.promotionReference ? (
+            <>
+              <p className="mt-1 font-display text-2xl font-semibold text-ink">{formatMoney(totalPrice.promotionReference.amount, totalPrice.promotionReference.currency)}</p>
+              <p className="mt-1 text-sm text-ink/70">{formatMoney(totalPrice.chargeAmountPen, "PEN")} a cobrar en soles</p>
+              <p className="mt-1 text-xs text-ink/70">Tipo de cambio: S/ {totalPrice.promotionReference.rate.toFixed(4)} por {totalPrice.promotionReference.currency}. Fuente: {totalPrice.promotionReference.source}, {totalPrice.promotionReference.date}.</p>
+            </>
+          ) : totalPrice.displayPriceUsd != null && totalPrice.exchangeRate != null ? (
             <>
               <p className="mt-1 font-display text-2xl font-semibold text-ink">
                 {formatMoney(totalPrice.displayPriceUsd, "USD")}
@@ -159,7 +168,7 @@ export function TicketForm({
         </fieldset>
       ) : <p role="status" className="text-sm text-ink/65">La compra estará disponible cuando el organizador publique los términos y condiciones.</p>}
 
-      {totalPrice && totalPrice.savingsPen > 0 && (
+      {totalPrice?.available && totalPrice.savingsPen > 0 && (
         <div className="rounded-md bg-paper-sunk p-4 text-sm" aria-live="polite">
           <p>Precio original: <span className="line-through">{formatMoney(totalPrice.subtotalPen, "PEN")}</span></p>
           <p className="font-semibold text-pink">{totalPrice.appliedOffer}: ahorras {formatMoney(totalPrice.savingsPen, "PEN")}</p>
@@ -169,7 +178,7 @@ export function TicketForm({
 
       <button
         type="submit"
-        disabled={busy || !resolvedPrice || !acceptedTerms || !hasTerms}
+        disabled={busy || !resolvedPrice || !acceptedTerms || !hasTerms || !totalPrice?.available}
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-buddy px-6 py-3 font-display font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-60"
       >
         {intent.state === "redirecting" ? (

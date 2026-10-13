@@ -282,3 +282,24 @@ The purchase stores its original subtotal, saving and selected offer in
 `pricing_snapshot`. Historic pending payments retain their recorded amount.
 Fully discounted purchases are confirmed directly with a receipt; no zero-value
 payment is sent to Mercado Pago. Capacity checks and terms acceptance still apply.
+
+## Custom package promotions (including EUR)
+
+In **Promociones**, select **Entradas por un precio personalizado**, set the package
+quantity (one or two), its total price and its currency (PEN, USD or EUR), then set
+its start/end. Example: quantity 2, total 45, currency EUR. Two-ticket packages
+require +1 permission and both companion names. Offers still never stack; the
+cheapest valid total wins, and a promotion never raises the regular price.
+
+EUR/PEN is obtained automatically from the BCRP daily selling-rate series
+[PD04648PD](https://estadisticas.bcrp.gob.pe/estadisticas/series/diarias/tipo-de-cambio),
+using its latest published value within the past ten days and an hourly Next.js
+fetch cache. No API key or manual EUR rate is required. USD packages use the existing
+USD/PEN exchange-rate flow. Package conversion is independent of buyer nationality.
+The package total and its source currency/rate/date appear at checkout and on the
+receipt, and are persisted in `pricing_snapshot`. Mercado Pago still charges PEN.
+If a required rate cannot be obtained, that package cannot be purchased; the app
+never guesses a conversion. A changed total requires the buyer to reload.
+
+This extends the existing `offer_rules` and `pricing_snapshot` JSON fields introduced
+in migration 0005; no additional SQL migration is needed.

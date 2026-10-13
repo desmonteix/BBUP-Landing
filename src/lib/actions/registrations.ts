@@ -4,13 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { getEventRowById } from "@/lib/db/events";
-import { resolvePriceForNationality } from "@/lib/pricing";
+import { resolvePriceForNationality, resolvePromotionRate } from "@/lib/pricing";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createPaymentPreference, getSiteUrl } from "@/lib/mercadopago";
 import { rsvpSchema, ticketIntentSchema } from "@/lib/validation/schemas";
 import { sendRsvpConfirmation, sendTicketReceipt } from "@/lib/resend";
 import { termsVersion } from "@/lib/terms";
 import { quoteTickets } from "@/lib/offers";
+import { getEuroPromotionRate } from "@/lib/promotionExchangeRate";
 
 export type RsvpState = {
   status: "idle" | "success" | "error";
@@ -130,7 +131,11 @@ export async function createTicketIntent(
     return { ok: false, error: "This event does not allow a +1." };
   }
   const quantity = parsed.data.companion ? 2 : 1;
-  const currentRate = await getCurrentExchangeRate();
+  const promotion = event.offer_rules?.promotion;
+  const [currentRate, euroRate] = await Promise.all([
+    getCurrentExchangeRate(),
+    promotion?.type === "bundle_price" && promotion.currency === "EUR" ? getEuroPromotionRate() : null,
+  ]);
   const price = resolvePriceForNationality(profile.nationality, event, currentRate);
   if (!price) {
     return {
@@ -143,7 +148,8 @@ export async function createTicketIntent(
   }
 
   const admin = createAdminClient();
-  const quote = quoteTickets(price, quantity, event.offer_rules);
+  const quote = quoteTickets(price, quantity, event.offer_rules, Date.now(), resolvePromotionRate(event.offer_rules, currentRate, euroRate));
+  if (!quote.available) return { ok: false, error: "The promotion exchange rate is temporarily unavailable. Try again shortly." };
   const totalPen = quote.chargeAmountPen;
   const totalUsd = quote.displayPriceUsd;
   if (parsed.data.expectedAmountPen != null && Math.round(parsed.data.expectedAmountPen * 100) !== Math.round(totalPen * 100)) {
@@ -173,7 +179,7 @@ export async function createTicketIntent(
       phone: null,
       kind: "ticket",
       ticket_quantity: quantity,
-      pricing_snapshot: { subtotalPen: quote.subtotalPen, savingsPen: quote.savingsPen, appliedOffer: quote.appliedOffer },
+      pricing_snapshot: { subtotalPen: quote.subtotalPen, savingsPen: quote.savingsPen, appliedOffer: quote.appliedOffer, promotionReference: quote.promotionReference },
       terms_accepted_at: new Date().toISOString(),
       terms_text_snapshot: event.terms_text,
       terms_url_snapshot: event.terms_url,
@@ -198,7 +204,7 @@ export async function createTicketIntent(
     await sendTicketReceipt({ to: profile.email, name: `${profile.first_name} ${profile.last_name}`,
       eventTitle: event.title, eventDate: event.event_date, location: event.location,
       amountPen: 0, displayPriceUsd: totalUsd, exchangeRateApplied: price.exchangeRate,
-      paymentId: "No payment required", ticketQuantity: quantity,
+      paymentId: "No payment required", ticketQuantity: quantity, promotionReference: quote.promotionReference,
       companionName: parsed.data.companion ? `${parsed.data.companion.firstName} ${parsed.data.companion.lastName}` : null });
     return { ok: true, registrationId, chargeAmountPen: 0, displayPriceUsd: totalUsd,
       exchangeRate: price.exchangeRate, initPoint: `/checkout/return?registration_id=${registrationId}` };

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ profile: vi.fn(), event: vi.fn(), rate: vi.fn(), preference: vi.fn(), insert: vi.fn(), bookings: vi.fn(), update: vi.fn() }));
+const mocks = vi.hoisted(() => ({ profile: vi.fn(), event: vi.fn(), rate: vi.fn(), euroRate: vi.fn(), preference: vi.fn(), insert: vi.fn(), bookings: vi.fn(), update: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getCurrentProfile: mocks.profile }));
 vi.mock("@/lib/db/events", () => ({ getEventRowById: mocks.event }));
 vi.mock("@/lib/exchangeRate", () => ({ getCurrentExchangeRate: mocks.rate }));
+vi.mock("@/lib/promotionExchangeRate", () => ({ getEuroPromotionRate: mocks.euroRate }));
 vi.mock("@/lib/mercadopago", () => ({ createPaymentPreference: mocks.preference, getSiteUrl: () => "http://localhost:3000" }));
 vi.mock("@/lib/resend", () => ({ sendRsvpConfirmation: vi.fn(), sendTicketReceipt: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}) }));
@@ -22,6 +23,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "Peruvian" });
   mocks.event.mockResolvedValue(event);
+  mocks.euroRate.mockResolvedValue(null);
   mocks.rate.mockResolvedValue({ rate: 3.5, source: "manual_override" });
   mocks.bookings.mockResolvedValue({ data: [], error: null });
   mocks.preference.mockResolvedValue({ ok: true, initPoint: "https://example.com/pay" });
@@ -111,7 +113,7 @@ describe("automatic offer checkout", () => {
     mocks.event.mockResolvedValue({ ...event, offer_rules: { promotion: { type: "two_for_one", ...window }, discount: { type: "percentage", value: 20, ...window } } });
     expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 90 });
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 90 }));
-    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, amount_pen: 90, pricing_snapshot: { subtotalPen: 180, savingsPen: 90, appliedOffer: "2x1" } }));
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, amount_pen: 90, pricing_snapshot: { subtotalPen: 180, savingsPen: 90, appliedOffer: "2x1", promotionReference: null } }));
   });
   it("charges a better percentage discount instead of 2x1", async () => {
     mocks.event.mockResolvedValue({ ...event, offer_rules: { promotion: { type: "two_for_one", ...window }, discount: { type: "percentage", value: 60, ...window } } });
@@ -133,5 +135,22 @@ describe("automatic offer checkout", () => {
     expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 0, initPoint: "/checkout/return?registration_id=booking" });
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ payment_status: "paid", ticket_quantity: 2, amount_pen: 0 }));
     expect(mocks.preference).not.toHaveBeenCalled();
+  });
+});
+
+describe("custom EUR package checkout", () => {
+  const window = { startsAt: "2000-01-01T00:00:00Z", endsAt: "2100-01-01T00:00:00Z" };
+  const rules = { promotion: { type: "bundle_price", quantity: 2, amount: 45, currency: "EUR", ...window } };
+  it("sends the converted 45 EUR total to Mercado Pago and records its rate", async () => {
+    mocks.event.mockResolvedValue({ ...event, price_pen: 120, offer_rules: rules });
+    mocks.euroRate.mockResolvedValue({ currency: "EUR", rate: 4.1, date: "13.Oct.26", source: "BCRP PD04648PD" });
+    expect(await createTicketIntent(eventId, companion, { ...consent, expectedAmountPen: 184.5 })).toMatchObject({ ok: true, chargeAmountPen: 184.5 });
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 184.5 }));
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, pricing_snapshot: expect.objectContaining({ promotionReference: { currency: "EUR", amount: 45, rate: 4.1, date: "13.Oct.26", source: "BCRP PD04648PD" } }) }));
+  });
+  it("does not create a booking or payment if EUR conversion fails", async () => {
+    mocks.event.mockResolvedValue({ ...event, offer_rules: rules });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: false });
+    expect(mocks.preference).not.toHaveBeenCalled();expect(mocks.insert).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { EventRow, EventType, ExchangeRate, Nationality, PublicEvent } from "@/lib/types";
-import { resolvePriceForNationality } from "@/lib/pricing";
+import type { EventRow, EventType, ExchangeRate, Nationality, PublicEvent, PromotionExchangeRate } from "@/lib/types";
+import { resolvePriceForNationality, resolvePromotionRate } from "@/lib/pricing";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { termsVersion } from "@/lib/terms";
+import { getEuroPromotionRate } from "@/lib/promotionExchangeRate";
 
 const PUBLIC_COLUMNS =
   "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at";
@@ -40,16 +41,16 @@ export async function listEvents(
 
   const withCounts = await attachSpotsRemaining(rows);
 
-  // Only fetch the rate when it's actually needed: a non-Peruvian viewer
-  // looking at at least one paid event. Peruvian buyers and anonymous
-  // visitors never trigger a conversion, so no need to pay for the read.
-  const needsRate =
-    opts.viewerNationality != null &&
-    opts.viewerNationality !== "Peruvian" &&
-    rows.some((r) => r.type === "paid");
-  const currentRate = needsRate ? await getCurrentExchangeRate() : null;
-
-  return withCounts.map((row) => toPublicEvent(row, opts.viewerNationality, currentRate));
+  // Logged-in buyers need their nationality rate and any package currency rate.
+  // Anonymous event browsing does not trigger currency conversion.
+  const needsRate = opts.viewerNationality != null && rows.some((row) => row.type === "paid" &&
+    (opts.viewerNationality !== "Peruvian" || row.offer_rules?.promotion?.type === "bundle_price" && row.offer_rules.promotion.currency === "USD"));
+  const needsEuroRate = opts.viewerNationality != null && rows.some((row) => row.type === "paid" && row.offer_rules?.promotion?.type === "bundle_price" && row.offer_rules.promotion.currency === "EUR");
+  const [currentRate, euroRate] = await Promise.all([
+    needsRate ? getCurrentExchangeRate() : null,
+    needsEuroRate ? getEuroPromotionRate() : null,
+  ]);
+  return withCounts.map((row) => toPublicEvent(row, opts.viewerNationality, currentRate, euroRate));
 }
 
 export async function getEventRowBySlug(
@@ -98,7 +99,8 @@ export async function getEventRowById(
 export function toPublicEvent(
   row: EventRow & { registration_count?: number },
   viewerNationality: Nationality | null,
-  currentExchangeRate: ExchangeRate | null = null
+  currentExchangeRate: ExchangeRate | null = null,
+  euroRate: PromotionExchangeRate | null = null
 ): PublicEvent {
   const spotsRemaining =
     row.capacity == null
@@ -122,6 +124,7 @@ export function toPublicEvent(
     promotions: row.promotions,
     discounts: row.discounts,
     offer_rules: row.offer_rules,
+    promotion_exchange_rate: resolvePromotionRate(row.offer_rules, currentExchangeRate, euroRate),
     terms_text: row.terms_text,
     terms_url: row.terms_url,
     terms_version: termsVersion(row.terms_text, row.terms_url),

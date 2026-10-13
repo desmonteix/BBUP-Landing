@@ -1,5 +1,6 @@
 import "server-only";
 import { Resend } from "resend";
+import type { PromotionReference } from "@/lib/types";
 import { formatEventDate, formatEventTime } from "@/lib/utils";
 import { formatMoney } from "@/lib/pricing";
 
@@ -151,6 +152,7 @@ export async function sendTicketReceipt(params: {
   paymentId: string;
   ticketQuantity?: number;
   companionName?: string | null;
+  promotionReference?: PromotionReference | null;
 }) {
   const resend = getResendClient();
   if (!resend) return;
@@ -175,6 +177,7 @@ export async function sendTicketReceipt(params: {
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Amount charged</td><td>${formatMoney(params.amountPen, "PEN")}</td></tr>
             <tr><td>Tickets</td><td>${params.ticketQuantity ?? 1}</td></tr>
             ${params.companionName ? `<tr><td>+1</td><td>${escapeHtml(params.companionName)}</td></tr>` : ""}
+            ${params.promotionReference ? `<tr><td>Package price</td><td>${formatMoney(params.promotionReference.amount, params.promotionReference.currency)} at S/ ${params.promotionReference.rate.toFixed(4)} per ${escapeHtml(params.promotionReference.currency)} (${escapeHtml(params.promotionReference.source)}, ${escapeHtml(params.promotionReference.date)})</td></tr>` : ""}
             ${usdLine}
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Payment ID</td><td>${escapeHtml(params.paymentId)}</td></tr>
           </table>

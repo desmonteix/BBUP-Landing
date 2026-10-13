@@ -69,8 +69,16 @@ export type EventType = "free" | "paid";
 export type EventStatus = "open" | "closed";
 
 export interface OfferWindow { startsAt: string; endsAt: string }
+export interface PromotionExchangeRate {
+  currency: "EUR" | "USD";
+  rate: number;
+  date: string;
+  source: string;
+}
+export interface PromotionReference extends PromotionExchangeRate { amount: number }
+
 export interface OfferRules {
-  promotion?: OfferWindow & { type: "two_for_one" };
+  promotion?: OfferWindow & ({ type: "two_for_one" } | { type: "bundle_price"; quantity: 1 | 2; amount: number; currency: "PEN" | "USD" | "EUR" });
   discount?: OfferWindow & { type: "percentage" | "fixed"; value: number };
 }
 
@@ -125,6 +133,7 @@ export interface PublicEvent {
    * viewer, resolved from THEIR OWN nationality. Exactly one price. */
   resolved_price: ResolvedPrice | null;
   terms_version: string;
+  promotion_exchange_rate: PromotionExchangeRate | null;
 }
 
 /**
@@ -160,7 +169,7 @@ export interface Registration {
   phone: string | null;
   kind: RegistrationKind;
   ticket_quantity: number;
-  pricing_snapshot: { subtotalPen: number; savingsPen: number; appliedOffer: string | null } | null;
+  pricing_snapshot: { subtotalPen: number; savingsPen: number; appliedOffer: string | null; promotionReference?: PromotionReference | null } | null;
   terms_accepted_at: string | null;
   terms_text_snapshot: string | null;
   terms_url_snapshot: string | null;

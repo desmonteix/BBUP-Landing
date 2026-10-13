@@ -79,7 +79,10 @@ const offerWindow = {
   endsAt: z.string().datetime({ offset: true }),
 };
 export const offerRulesSchema = z.object({
-  promotion: z.object({ ...offerWindow, type: z.literal("two_for_one") })
+  promotion: z.discriminatedUnion("type", [
+    z.object({ ...offerWindow, type: z.literal("two_for_one") }),
+    z.object({ ...offerWindow, type: z.literal("bundle_price"), quantity: z.union([z.literal(1), z.literal(2)]), amount: z.number().positive().max(999999).multipleOf(0.01), currency: z.enum(["PEN", "USD", "EUR"]) }),
+  ])
     .refine((data) => Date.parse(data.endsAt) > Date.parse(data.startsAt), "Promotion end must be after its start.").optional(),
   discount: z.object({ ...offerWindow, type: z.enum(["percentage", "fixed"]), value: z.number().positive().max(999999) })
     .refine((data) => data.type !== "percentage" || data.value <= 100, "Percentage discounts cannot exceed 100%.")
@@ -116,8 +119,8 @@ export const eventFormSchema = z
       catch { return false; }
     }, "Use an HTTP or HTTPS link for the terms.").default(""),
   })
-  .refine((data) => !data.offerRules.promotion || (data.type === "paid" && data.allowCompanion), {
-    message: "Enable +1 on a paid event to offer 2x1.", path: ["offerRules"],
+  .refine((data) => !data.offerRules.promotion || (data.type === "paid" && (data.offerRules.promotion.type === "bundle_price" && data.offerRules.promotion.quantity === 1 || data.allowCompanion)), {
+    message: "Two-ticket promotions require a paid event with +1 enabled.", path: ["offerRules"],
   })
   .refine((data) => data.type === "free" || Boolean(data.termsText || data.termsUrl), {
     message: "Paid events require terms and conditions as text or a link.",

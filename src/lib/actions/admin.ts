@@ -46,7 +46,8 @@ function parseEventForm(formData: FormData) {
     promotions: formData.get("promotions") || "",
     discounts: formData.get("discounts") || "",
     offerRules: {
-      promotion: paid && promotionType === "two_for_one" ? { type: promotionType, startsAt: date("promotionStartsAt"), endsAt: date("promotionEndsAt") } : undefined,
+      promotion: !paid ? undefined : promotionType === "two_for_one" ? { type: promotionType, startsAt: date("promotionStartsAt"), endsAt: date("promotionEndsAt") }
+        : promotionType === "bundle_price" ? { type: promotionType, quantity: Number(formData.get("promotionQuantity")), amount: Number(formData.get("promotionAmount")), currency: formData.get("promotionCurrency"), startsAt: date("promotionStartsAt"), endsAt: date("promotionEndsAt") } : undefined,
       discount: paid && (discountType === "percentage" || discountType === "fixed") ? { type: discountType, value: Number(formData.get("discountValue")), startsAt: date("discountStartsAt"), endsAt: date("discountEndsAt") } : undefined,
     },
     termsText: formData.get("termsText") || "",

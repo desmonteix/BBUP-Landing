@@ -142,6 +142,7 @@ export function EventModal({
                     isLoggedIn={isLoggedIn}
                     resolvedPrice={event.resolved_price}
                     offerRules={event.offer_rules}
+                    promotionExchangeRate={event.promotion_exchange_rate}
                     termsText={event.terms_text}
                     termsUrl={event.terms_url}
                     termsVersion={event.terms_version}

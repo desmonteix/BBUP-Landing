@@ -1,5 +1,5 @@
 import "server-only";
-import type { ExchangeRate, Nationality, ResolvedPrice } from "@/lib/types";
+import type { ExchangeRate, Nationality, ResolvedPrice, OfferRules, PromotionExchangeRate } from "@/lib/types";
 
 export { formatMoney } from "@/lib/money";
 
@@ -112,4 +112,13 @@ export function resolvePriceForNationality(
     exchangeRate: appliedRate,
     includesMargin: currentExchangeRate.source === "bcrp_auto",
   };
+}
+
+/** A package currency has its own conversion, independent of buyer nationality. */
+export function resolvePromotionRate(rules: OfferRules, usdRate: ExchangeRate | null, euroRate: PromotionExchangeRate | null): PromotionExchangeRate | null {
+  const promotion = rules?.promotion;
+  if (promotion?.type !== "bundle_price") return null;
+  if (promotion.currency === "EUR") return euroRate;
+  if (promotion.currency === "USD" && usdRate) return { currency: "USD", rate: effectiveRateFor(usdRate), date: usdRate.updated_at, source: usdRate.source };
+  return null;
 }

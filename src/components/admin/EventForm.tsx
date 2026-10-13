@@ -16,6 +16,7 @@ export function EventForm({
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [type, setType] = useState<"free" | "paid">(event?.type ?? "free");
+  const bundle = event?.offer_rules?.promotion?.type === "bundle_price" ? event.offer_rules.promotion : null;
   const [promotionType, setPromotionType] = useState(event?.offer_rules?.promotion?.type ?? "none");
   const [discountType, setDiscountType] = useState(event?.offer_rules?.discount?.type ?? "none");
 
@@ -172,9 +173,16 @@ export function EventForm({
               <Select id="promotionType" name="promotionType" value={promotionType} onChange={(e) => setPromotionType(e.target.value)}>
                 <option value="none">Sin promoción</option>
                 <option value="two_for_one">2x1: dos entradas por el precio de una</option>
+                <option value="bundle_price">Entradas por un precio personalizado</option>
               </Select>
-              {promotionType === "two_for_one" && <>
-                <p className="text-xs text-ink/60">Requiere permitir +1. La compra ocupa dos cupos.</p>
+              {promotionType === "bundle_price" && <div className="grid gap-3 sm:grid-cols-3">
+                <div><Label htmlFor="promotionQuantity">Entradas por paquete</Label><Input id="promotionQuantity" name="promotionQuantity" type="number" min="1" max="2" step="1" required defaultValue={bundle?.quantity ?? 2} /></div>
+                <div><Label htmlFor="promotionAmount">Precio total del paquete</Label><Input id="promotionAmount" name="promotionAmount" type="number" min="0.01" max="999999" step="0.01" required defaultValue={bundle?.amount} placeholder="45.00" /></div>
+                <div><Label htmlFor="promotionCurrency">Moneda del paquete</Label><Select id="promotionCurrency" name="promotionCurrency" defaultValue={bundle?.currency ?? "EUR"}><option value="EUR">EUR (euros)</option><option value="PEN">PEN (soles)</option><option value="USD">USD (dólares)</option></Select></div>
+                <p className="text-xs text-ink/60 sm:col-span-3">El tipo de cambio se actualiza automáticamente. Mercado Pago cobra en soles; el comprador ve el precio de referencia y su conversión.</p>
+              </div>}
+              {promotionType !== "none" && <>
+                <p className="text-xs text-ink/60">Para paquetes de dos entradas, activa +1. Cada entrada ocupa un cupo.</p>
                 <OfferDates prefix="promotion" startsAt={event?.offer_rules?.promotion?.startsAt} endsAt={event?.offer_rules?.promotion?.endsAt} />
               </>}
               <Label htmlFor="promotions">Descripción de la promoción (opcional)</Label>

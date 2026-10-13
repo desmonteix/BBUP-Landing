@@ -15,3 +15,23 @@ describe("automatic offers", () => {
   it("uses integer cents for percentage rounding", () => { expect(quoteTickets({ ...price, chargeAmountPen: 1.15 }, 1, { discount: { type: "percentage", value: 10, ...active } }, now).chargeAmountPen).toBe(1.04); });
   it("adjusts the USD reference when a PEN discount is applied", () => { expect(quoteTickets({ ...price, chargeAmountPen: 105, displayPriceUsd: 30, exchangeRate: 3.5 }, 2, { discount: { type: "fixed", value: 35, ...active } }, now)).toMatchObject({ chargeAmountPen: 175, displayPriceUsd: 50 }); });
 });
+
+describe("custom package promotions", () => {
+  const window = { startsAt: "2000-01-01T00:00:00Z", endsAt: "2100-01-01T00:00:00Z" };
+  const euroRate = { currency: "EUR" as const, rate: 4.1, date: "2026-10-13", source: "Frankfurter" };
+  it("charges exactly 45 EUR converted to PEN for two tickets", () => {
+    expect(quoteTickets({ ...price, chargeAmountPen: 120 }, 2, { promotion: { type: "bundle_price", quantity: 2, amount: 45, currency: "EUR", ...window } }, now, euroRate)).toMatchObject({ available: true, chargeAmountPen: 184.5, savingsPen: 55.5, promotionReference: { amount: 45, currency: "EUR", rate: 4.1 } });
+  });
+  it("customizes the package price in PEN", () => {
+    expect(quoteTickets(price, 2, { promotion: { type: "bundle_price", quantity: 2, amount: 45, currency: "PEN", ...window } }, now)).toMatchObject({ chargeAmountPen: 45 });
+  });
+  it("does not apply a two-ticket package to a single entry", () => {
+    expect(quoteTickets(price, 1, { promotion: { type: "bundle_price", quantity: 2, amount: 45, currency: "EUR", ...window } }, now)).toMatchObject({ available: true, chargeAmountPen: 90 });
+  });
+  it("blocks the package when its conversion rate is unavailable", () => {
+    expect(quoteTickets(price, 2, { promotion: { type: "bundle_price", quantity: 2, amount: 45, currency: "EUR", ...window } }, now)).toMatchObject({ available: false });
+  });
+  it("compares a package against discounts without stacking", () => {
+    expect(quoteTickets({ ...price, chargeAmountPen: 120 }, 2, { promotion: { type: "bundle_price", quantity: 2, amount: 45, currency: "EUR", ...window }, discount: { type: "percentage", value: 50, ...window } }, now, euroRate)).toMatchObject({ chargeAmountPen: 120, promotionReference: null });
+  });
+});

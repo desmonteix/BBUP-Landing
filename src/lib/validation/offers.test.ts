@@ -13,3 +13,10 @@ describe("offer rules validation", () => {
     expect(eventFormSchema.safeParse({ title: "Party", slug: "party", description: "Party", eventDate: "2026-12-01T20:00", location: "Lima", type: "paid", pricePen: 90, priceUsd: 30, category: "Events", status: "open", termsText: "Terms", allowCompanion: false, offerRules: { promotion: { type: "two_for_one", ...window } } }).success).toBe(false);
   });
 });
+
+it("preserves a custom two-ticket EUR package", () => {
+  expect(offerRulesSchema.parse({ promotion: { type: "bundle_price", quantity: 2, amount: 45, currency: "EUR", ...window } })).toMatchObject({ promotion: { quantity: 2, amount: 45, currency: "EUR" } });
+});
+it.each([{ quantity: 3, amount: 45, currency: "EUR" }, { quantity: 2, amount: -45, currency: "EUR" }, { quantity: 2, amount: 45, currency: "INVALID" }])("rejects invalid packages", (values) => {
+  expect(offerRulesSchema.safeParse({ promotion: { type: "bundle_price", ...window, ...values } }).success).toBe(false);
+});
