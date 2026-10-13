@@ -87,6 +87,8 @@ export interface EventRow {
   allow_companion: boolean;
   promotions: string;
   discounts: string;
+  terms_text: string;
+  terms_url: string;
   created_at: string;
 }
 
@@ -109,9 +111,12 @@ export interface PublicEvent {
   allow_companion: boolean;
   promotions: string;
   discounts: string;
+  terms_text: string;
+  terms_url: string;
   /** Only ever populated server-side for the currently authenticated
    * viewer, resolved from THEIR OWN nationality. Exactly one price. */
   resolved_price: ResolvedPrice | null;
+  terms_version: string;
 }
 
 /**
@@ -147,6 +152,9 @@ export interface Registration {
   phone: string | null;
   kind: RegistrationKind;
   ticket_quantity: number;
+  terms_accepted_at: string | null;
+  terms_text_snapshot: string | null;
+  terms_url_snapshot: string | null;
   companion_first_name: string | null;
   companion_last_name: string | null;
   amount_pen: number | null;

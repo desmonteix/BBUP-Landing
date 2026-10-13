@@ -34,7 +34,8 @@ npm install
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run `supabase/migrations/0001_init.sql` then
    `supabase/migrations/0002_mercadopago_and_exchange_rates.sql`, then
-   `supabase/migrations/0003_event_companions_and_offers.sql` in order
+   `supabase/migrations/0003_event_companions_and_offers.sql`, then
+   `supabase/migrations/0004_event_terms_and_acceptance.sql` in order
    (schema, RLS policies, the `admin_registrants` view, the `exchange_rates`
    table).
 3. **Expose the `pagina_web` schema.** All app tables live in a custom
@@ -243,3 +244,19 @@ registrations remain one entry; existing events disable +1 by default.
 The migration serializes new reservations per event to prevent concurrent
 purchases exceeding capacity. Pending bookings reserve seats, as before. Free
 RSVPs continue to register one person.
+
+## Event terms and acceptance
+
+Apply `0004_event_terms_and_acceptance.sql` after migration 0003. In the shared
+create/edit event form, add **Terminos y condiciones** as text, an HTTP(S) link,
+or both. Paid events require at least one. Existing events start with empty terms
+and must be configured before new purchases are allowed. Historic purchases and
+pending payment settlements are preserved.
+
+Checkout shows the terms and requires an unchecked-by-default acceptance checkbox.
+The server rejects missing acceptance and outdated terms before reserving seats or
+creating a payment. Each new purchase stores the accepted text/link and a server
+timestamp. A database trigger also checks the snapshot against the locked event
+row to handle an organizer editing terms during checkout. For linked documents,
+the snapshot records the URL, not the remote document contents; use a new URL for
+a new document version. Free RSVPs do not require purchase consent.

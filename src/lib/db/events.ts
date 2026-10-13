@@ -4,9 +4,10 @@ import type { EventRow, EventType, ExchangeRate, Nationality, PublicEvent } from
 import { resolvePriceForNationality } from "@/lib/pricing";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { termsVersion } from "@/lib/terms";
 
 const PUBLIC_COLUMNS =
-  "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, created_at";
+  "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, terms_text, terms_url, created_at";
 
 /**
  * Fetches events and maps each row down to `PublicEvent` — the shape that
@@ -58,7 +59,7 @@ export async function getEventRowBySlug(
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, terms_text, terms_url, created_at"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -77,7 +78,7 @@ export async function getEventRowById(
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, terms_text, terms_url, created_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -120,6 +121,9 @@ export function toPublicEvent(
     allow_companion: row.allow_companion,
     promotions: row.promotions,
     discounts: row.discounts,
+    terms_text: row.terms_text,
+    terms_url: row.terms_url,
+    terms_version: termsVersion(row.terms_text, row.terms_url),
     resolved_price:
       row.type === "paid" && viewerNationality
         ? resolvePriceForNationality(viewerNationality, row, currentExchangeRate)

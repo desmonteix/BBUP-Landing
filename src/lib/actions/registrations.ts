@@ -9,6 +9,7 @@ import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createPaymentPreference, getSiteUrl } from "@/lib/mercadopago";
 import { rsvpSchema, ticketIntentSchema } from "@/lib/validation/schemas";
 import { sendRsvpConfirmation } from "@/lib/resend";
+import { termsVersion } from "@/lib/terms";
 
 export type RsvpState = {
   status: "idle" | "success" | "error";
@@ -103,9 +104,10 @@ export type TicketIntentResult =
  */
 export async function createTicketIntent(
   eventId: string,
-  companion?: { firstName: string; lastName: string }
+  companion?: { firstName: string; lastName: string },
+  consent?: { accepted: boolean; version: string }
 ): Promise<TicketIntentResult> {
-  const parsed = ticketIntentSchema.safeParse({ eventId, companion });
+  const parsed = ticketIntentSchema.safeParse({ eventId, companion, accepted: consent?.accepted, version: consent?.version });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form." };
 
   const profile = await getCurrentProfile();
@@ -117,6 +119,12 @@ export async function createTicketIntent(
   if (event.type !== "paid") return { ok: false, error: "This event is free — use the RSVP form." };
   if (event.status !== "open") return { ok: false, error: "Ticket sales are closed for this event." };
 
+  if (!event.terms_text && !event.terms_url) {
+    return { ok: false, error: "The organizer has not published the event terms yet." };
+  }
+  if (parsed.data.version !== termsVersion(event.terms_text, event.terms_url)) {
+    return { ok: false, error: "The event terms have changed. Reload the event and accept the updated terms." };
+  }
   if (parsed.data.companion && !event.allow_companion) {
     return { ok: false, error: "This event does not allow a +1." };
   }
@@ -160,6 +168,9 @@ export async function createTicketIntent(
       phone: null,
       kind: "ticket",
       ticket_quantity: quantity,
+      terms_accepted_at: new Date().toISOString(),
+      terms_text_snapshot: event.terms_text,
+      terms_url_snapshot: event.terms_url,
       companion_first_name: parsed.data.companion?.firstName ?? null,
       companion_last_name: parsed.data.companion?.lastName ?? null,
       amount_pen: totalPen,

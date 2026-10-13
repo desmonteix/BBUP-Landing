@@ -40,6 +40,8 @@ function parseEventForm(formData: FormData) {
     allowCompanion: formData.get("allowCompanion") === "on",
     promotions: formData.get("promotions") || "",
     discounts: formData.get("discounts") || "",
+    termsText: formData.get("termsText") || "",
+    termsUrl: formData.get("termsUrl") || "",
   });
 }
 
@@ -71,6 +73,8 @@ export async function createEvent(
     allow_companion: parsed.data.allowCompanion,
     promotions: parsed.data.promotions,
     discounts: parsed.data.discounts,
+    terms_text: parsed.data.termsText,
+    terms_url: parsed.data.termsUrl,
   });
 
   if (error) {
@@ -117,6 +121,8 @@ export async function updateEvent(
       allow_companion: parsed.data.allowCompanion,
       promotions: parsed.data.promotions,
       discounts: parsed.data.discounts,
+      terms_text: parsed.data.termsText,
+      terms_url: parsed.data.termsUrl,
     })
     .eq("id", eventId);
 

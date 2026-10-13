@@ -1,15 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { ticketIntentSchema, eventFormSchema } from "./schemas";
+const acceptance = { accepted: true, version: "a".repeat(64) };
 const eventId = "00000000-0000-4000-8000-000000000001";
 describe("companion validation", () => {
   it("keeps individual purchases valid", () => {
-    expect(ticketIntentSchema.safeParse({ eventId }).success).toBe(true);
+    expect(ticketIntentSchema.safeParse({ eventId, ...acceptance }).success).toBe(true);
   });
   it.each([{ firstName: "Ana", lastName: "" }, { firstName: " ", lastName: "Perez" }])("requires both companion names", (companion) => {
-    expect(ticketIntentSchema.safeParse({ eventId, companion }).success).toBe(false);
+    expect(ticketIntentSchema.safeParse({ eventId, ...acceptance, companion }).success).toBe(false);
   });
   it("preserves and trims companion names", () => {
-    expect(ticketIntentSchema.parse({ eventId, companion: { firstName: " Ana ", lastName: " Perez " } })).toEqual({ eventId, companion: { firstName: "Ana", lastName: "Perez" } });
+    expect(ticketIntentSchema.parse({ eventId, ...acceptance, companion: { firstName: " Ana ", lastName: " Perez " } })).toEqual({ eventId, ...acceptance, companion: { firstName: "Ana", lastName: "Perez" } });
   });
 });
 describe("event configuration", () => {

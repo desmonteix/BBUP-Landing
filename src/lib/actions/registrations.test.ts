@@ -12,9 +12,12 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () =>
   update: (row: unknown) => { mocks.update(row); return { eq: async () => ({ error: null }) }; },
 }) }) }));
 import { createTicketIntent } from "./registrations";
+import { createHash } from "node:crypto";
 const eventId = "00000000-0000-4000-8000-000000000001";
-const event = { id: eventId, title: "Party", type: "paid", status: "open", price_pen: 90, price_usd: 30, capacity: 10, allow_companion: true };
+const event = { id: eventId, title: "Party", type: "paid", status: "open", price_pen: 90, price_usd: 30, capacity: 10, allow_companion: true, terms_text: "No refunds", terms_url: "" };
 const companion = { firstName: " Ana ", lastName: " Perez " };
+const consent = { accepted: true, version: createHash("sha256").update(JSON.stringify(["No refunds", ""])).digest("hex") };
+const buy = (id: string, plusOne?: { firstName: string; lastName: string }) => createTicketIntent(id, plusOne, consent);
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "Peruvian" });
@@ -25,51 +28,79 @@ beforeEach(() => {
 });
 describe("ticket purchases", () => {
   it("charges one entry without a companion", async () => {
-    expect(await createTicketIntent(eventId)).toMatchObject({ ok: true, chargeAmountPen: 90 });
+    expect(await buy(eventId)).toMatchObject({ ok: true, chargeAmountPen: 90 });
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 1, companion_first_name: null, amount_pen: 90 }));
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 90 }));
   });
   it("charges two entries and saves both companion names", async () => {
-    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 180 });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 180 });
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, companion_first_name: "Ana", companion_last_name: "Perez", amount_pen: 180 }));
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 180 }));
   });
   it("uses the buyer's USD reference and conversion for both entries", async () => {
     mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
-    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 210, displayPriceUsd: 60, exchangeRate: 3.5 });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 210, displayPriceUsd: 60, exchangeRate: 3.5 });
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 210 }));
   });
   it("rejects a forged companion request when disabled", async () => {
     mocks.event.mockResolvedValue({ ...event, allow_companion: false });
-    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: false });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: false });
     expect(mocks.insert).not.toHaveBeenCalled();
   });
   it("rejects a companion without a surname before creating a payment", async () => {
-    expect(await createTicketIntent(eventId, { firstName: "Ana", lastName: " " })).toMatchObject({ ok: false });
+    expect(await buy(eventId, { firstName: "Ana", lastName: " " })).toMatchObject({ ok: false });
     expect(mocks.preference).not.toHaveBeenCalled();
   });
   it("rejects two tickets when only one seat remains, counting existing companions", async () => {
     mocks.bookings.mockResolvedValue({ data: [{ ticket_quantity: 2 }, { ticket_quantity: 2 }, { ticket_quantity: 2 }, { ticket_quantity: 2 }, { ticket_quantity: 1 }], error: null });
-    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: false });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: false });
     expect(mocks.insert).not.toHaveBeenCalled();
   });
   it("allows two entries when exactly two seats remain", async () => {
     mocks.bookings.mockResolvedValue({ data: Array.from({ length: 4 }, () => ({ ticket_quantity: 2 })), error: null });
-    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: true });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true });
   });
   it("does not sell when capacity cannot be checked", async () => {
     mocks.bookings.mockResolvedValue({ data: null, error: { message: "offline" } });
-    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: false });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: false });
     expect(mocks.insert).not.toHaveBeenCalled();
   });
   it("releases both seats when payment preparation fails", async () => {
     mocks.preference.mockResolvedValue({ ok: false, error: "Unavailable" });
-    expect(await createTicketIntent(eventId, companion)).toEqual({ ok: false, error: "Unavailable" });
+    expect(await buy(eventId, companion)).toEqual({ ok: false, error: "Unavailable" });
     expect(mocks.update).toHaveBeenCalledWith({ payment_status: "failed" });
   });
   it("requires authentication", async () => {
     mocks.profile.mockResolvedValue(null);
-    expect(await createTicketIntent(eventId, companion)).toMatchObject({ ok: false });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: false });
     expect(mocks.preference).not.toHaveBeenCalled();
+  });
+});
+
+describe("event terms acceptance", () => {
+  it("rejects buying without explicit acceptance", async () => {
+    expect(await createTicketIntent(eventId)).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("rejects false acceptance", async () => {
+    expect(await createTicketIntent(eventId, undefined, { ...consent, accepted: false })).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it("requires reacceptance when the organizer changes the terms", async () => {
+    mocks.event.mockResolvedValue({ ...event, terms_text: "Updated terms" });
+    expect(await buy(eventId)).toMatchObject({ ok: false });
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("does not sell an old event with no terms configured", async () => {
+    mocks.event.mockResolvedValue({ ...event, terms_text: "", terms_url: "" });
+    expect(await buy(eventId)).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it("stores the accepted content and timestamp with the purchase", async () => {
+    expect(await buy(eventId)).toMatchObject({ ok: true });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({
+      terms_accepted_at: expect.any(String), terms_text_snapshot: "No refunds", terms_url_snapshot: "",
+    }));
   });
 });

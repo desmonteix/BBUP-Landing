@@ -19,18 +19,26 @@ export function TicketForm({
   resolvedPrice,
   allowCompanion = false,
   spotsRemaining = null,
+  termsText,
+  termsUrl,
+  termsVersion,
 }: {
   eventId: string;
   isLoggedIn: boolean;
   resolvedPrice: ResolvedPrice | null;
   allowCompanion?: boolean;
   spotsRemaining?: number | null;
+  termsText: string;
+  termsUrl: string;
+  termsVersion: string;
 }) {
   const [intent, setIntent] = useState<Intent>({ state: "idle" });
   const [pending, startTransition] = useTransition();
   const [withCompanion, setWithCompanion] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const hasTerms = Boolean(termsText || termsUrl);
   const quantity = withCompanion ? 2 : 1;
   const totalPrice = resolvedPrice ? {
     ...resolvedPrice,
@@ -67,11 +75,11 @@ export function TicketForm({
   return (
     <form className="space-y-4" onSubmit={(e) => {
       e.preventDefault();
-      if (busy) return;
+      if (busy || !acceptedTerms || !hasTerms) return;
       startTransition(async () => {
         setIntent({ state: "creating" });
         try {
-          const result = await createTicketIntent(eventId, withCompanion ? { firstName, lastName } : undefined);
+          const result = await createTicketIntent(eventId, withCompanion ? { firstName, lastName } : undefined, { accepted: acceptedTerms, version: termsVersion });
           if (!result.ok) { setIntent({ state: "error", message: result.error }); return; }
           setIntent({ state: "redirecting" });
           window.location.href = result.initPoint;
@@ -135,9 +143,21 @@ export function TicketForm({
         </div>
       )}
 
+      {hasTerms ? (
+        <fieldset disabled={busy} className="space-y-3 rounded-md border border-border p-4">
+          <legend className="px-2 text-sm font-semibold">Términos y condiciones</legend>
+          {termsText && <div className="max-h-64 overflow-y-auto whitespace-pre-line break-words text-sm leading-relaxed text-ink/75" tabIndex={0} role="region" aria-label="Texto de los términos y condiciones">{termsText}</div>}
+          {termsUrl && <a href={termsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-pink underline">Leer términos y condiciones <ExternalLink size={14} /></a>}
+          <label className="flex items-start gap-3 text-sm font-semibold">
+            <input name="acceptedTerms" type="checkbox" required checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-pink" />
+            He leído y acepto los términos y condiciones de este evento.
+          </label>
+        </fieldset>
+      ) : <p role="status" className="text-sm text-ink/65">La compra estará disponible cuando el organizador publique los términos y condiciones.</p>}
+
       <button
         type="submit"
-        disabled={busy || !resolvedPrice}
+        disabled={busy || !resolvedPrice || !acceptedTerms || !hasTerms}
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-buddy px-6 py-3 font-display font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-60"
       >
         {intent.state === "redirecting" ? (

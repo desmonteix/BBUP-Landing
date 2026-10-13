@@ -172,6 +172,20 @@ export function EventForm({
         <p className="text-xs text-ink/60">Estos textos se muestran en el evento. No modifican automáticamente el precio de las entradas.</p>
       </fieldset>
 
+      <fieldset className="space-y-4 rounded-md border border-border p-4">
+        <legend className="px-2 text-sm font-semibold">Términos y condiciones</legend>
+        <p className="text-xs text-ink/60">Para eventos de pago, ingresa el texto, un enlace o ambos. El comprador debe aceptarlos antes de pagar.</p>
+        <div>
+          <Label htmlFor="termsText">Texto de los términos y condiciones</Label>
+          <textarea id="termsText" name="termsText" defaultValue={event?.terms_text ?? ""} rows={6} maxLength={20000}
+            className="w-full rounded-sm border border-border bg-white px-4 py-2.5 text-sm text-ink outline-none focus-visible:border-pink" />
+        </div>
+        <div>
+          <Label htmlFor="termsUrl">Enlace a los términos y condiciones</Label>
+          <Input id="termsUrl" name="termsUrl" type="url" defaultValue={event?.terms_url ?? ""} placeholder="https://..." maxLength={2000} />
+        </div>
+      </fieldset>
+
       {state.status === "error" && (
         <p className="text-sm font-semibold text-error" role="alert">
           {state.message}

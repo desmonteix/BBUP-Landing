@@ -61,6 +61,8 @@ export const rsvpSchema = z.object({
 
 export const ticketIntentSchema = z.object({
   eventId: z.string().uuid(),
+  accepted: z.literal(true, { errorMap: () => ({ message: "Accept the event terms and conditions before buying." }) }),
+  version: z.string().regex(/^[a-f0-9]{64}$/, "Reload the event and accept its terms."),
   companion: z.object({
     firstName: z.string().trim().min(1, "Companion first name is required").max(100),
     lastName: z.string().trim().min(1, "Companion last name is required").max(100),
@@ -93,6 +95,16 @@ export const eventFormSchema = z
     allowCompanion: z.boolean().default(false),
     promotions: z.string().trim().max(2000).default(""),
     discounts: z.string().trim().max(2000).default(""),
+    termsText: z.string().trim().max(20000).default(""),
+    termsUrl: z.string().trim().max(2000).refine((value) => {
+      if (!value) return true;
+      try { return ["http:", "https:"].includes(new URL(value).protocol); }
+      catch { return false; }
+    }, "Use an HTTP or HTTPS link for the terms.").default(""),
+  })
+  .refine((data) => data.type === "free" || Boolean(data.termsText || data.termsUrl), {
+    message: "Paid events require terms and conditions as text or a link.",
+    path: ["termsText"],
   })
   .refine(
     (data) =>
