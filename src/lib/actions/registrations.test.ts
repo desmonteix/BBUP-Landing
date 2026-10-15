@@ -15,7 +15,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () =>
 import { createTicketIntent } from "./registrations";
 import { createHash } from "node:crypto";
 const eventId = "00000000-0000-4000-8000-000000000001";
-const event = { id: eventId, title: "Party", type: "paid", status: "open", price_pen: 90, price_usd: 30, capacity: 10, allow_companion: true, terms_text: "No refunds", terms_url: "" };
+const event = { id: eventId, title: "Party", type: "paid", status: "open", price_pen: 90, price_eur: 30, capacity: 10, allow_companion: true, terms_text: "No refunds", terms_url: "" };
 const companion = { firstName: " Ana ", lastName: " Perez " };
 const consent = { accepted: true, version: createHash("sha256").update(JSON.stringify(["No refunds", ""])).digest("hex") };
 const buy = (id: string, plusOne?: { firstName: string; lastName: string }) => createTicketIntent(id, plusOne, consent);
@@ -39,9 +39,9 @@ describe("ticket purchases", () => {
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, companion_first_name: "Ana", companion_last_name: "Perez", amount_pen: 180 }));
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 180 }));
   });
-  it("uses the buyer's USD reference and conversion for both entries", async () => {
+  it("uses the buyer's EUR reference and conversion for both entries", async () => {
     mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
-    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 210, displayPriceUsd: 60, exchangeRate: 3.5 });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 210, displayPriceEur: 60, exchangeRate: 3.5 });
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 210 }));
   });
   it("rejects a forged companion request when disabled", async () => {
@@ -123,7 +123,7 @@ describe("automatic offer checkout", () => {
   it("applies fixed discounts to the converted PEN price for international buyers", async () => {
     mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
     mocks.event.mockResolvedValue({ ...event, offer_rules: { discount: { type: "fixed", value: 35, ...window } } });
-    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 175, displayPriceUsd: 50 });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 175, displayPriceEur: 50 });
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 175 }));
   });
   it("does not send a different total than the buyer saw to Mercado Pago", async () => {

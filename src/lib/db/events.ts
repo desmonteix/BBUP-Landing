@@ -8,14 +8,14 @@ import { termsVersion } from "@/lib/terms";
 import { getEuroPromotionRate } from "@/lib/promotionExchangeRate";
 
 const PUBLIC_COLUMNS =
-  "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at";
+  "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_eur, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at";
 
 /**
  * Fetches events and maps each row down to `PublicEvent` — the shape that
  * is allowed to reach the client. For paid events, `resolved_price` is
  * computed from `viewerNationality` (the CURRENT viewer's own profile,
  * passed in by the caller after checking auth) and is the ONLY pricing
- * information attached. `price_pen`/`price_usd` from the source row are
+ * information attached. `price_pen`/`price_eur` from the source row are
  * read here on the server and then deliberately dropped — never spread
  * into the returned object.
  */
@@ -44,7 +44,7 @@ export async function listEvents(
   // Logged-in buyers need their nationality rate and any package currency rate.
   // Anonymous event browsing does not trigger currency conversion.
   const needsRate = opts.viewerNationality != null && rows.some((row) => row.type === "paid" &&
-    (opts.viewerNationality !== "Peruvian" || row.offer_rules?.promotion?.type === "bundle_price" && row.offer_rules.promotion.currency === "USD"));
+    (opts.viewerNationality !== "Peruvian" || row.offer_rules?.promotion?.type === "bundle_price" && row.offer_rules.promotion.currency === "EUR"));
   const needsEuroRate = opts.viewerNationality != null && rows.some((row) => row.type === "paid" && row.offer_rules?.promotion?.type === "bundle_price" && row.offer_rules.promotion.currency === "EUR");
   const [currentRate, euroRate] = await Promise.all([
     needsRate ? getCurrentExchangeRate() : null,
@@ -60,7 +60,7 @@ export async function getEventRowBySlug(
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_eur, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -79,7 +79,7 @@ export async function getEventRowById(
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_usd, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at"
+      "id, slug, title, description, cover_image, event_date, location, type, price_pen, price_eur, capacity, status, category, allow_companion, promotions, discounts, offer_rules, terms_text, terms_url, created_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -124,7 +124,7 @@ export function toPublicEvent(
     promotions: row.promotions,
     discounts: row.discounts,
     offer_rules: row.offer_rules,
-    promotion_exchange_rate: resolvePromotionRate(row.offer_rules, currentExchangeRate, euroRate),
+    promotion_exchange_rate: resolvePromotionRate(row.offer_rules, euroRate),
     terms_text: row.terms_text,
     terms_url: row.terms_url,
     terms_version: termsVersion(row.terms_text, row.terms_url),

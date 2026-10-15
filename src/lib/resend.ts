@@ -143,11 +143,11 @@ export async function sendTicketReceipt(params: {
   location: string;
   /** What Mercado Pago actually charged — always PEN (spec §3/§4). */
   amountPen: number;
-  /** Set only for exchange-student tickets: the USD figure they were
+  /** Set only for exchange-student tickets: the EUR figure they were
    * shown before conversion, kept here purely so the receipt's math is
    * legible even though PEN is what was charged. */
-  displayPriceUsd: number | null;
-  /** The USD -> PEN rate used at charge time, for the same reason. */
+  displayPriceEur: number | null;
+  /** The EUR -> PEN rate used at charge time, for the same reason. */
   exchangeRateApplied: number | null;
   paymentId: string;
   ticketQuantity?: number;
@@ -157,9 +157,9 @@ export async function sendTicketReceipt(params: {
   const resend = getResendClient();
   if (!resend) return;
 
-  const usdLine =
-    params.displayPriceUsd != null && params.exchangeRateApplied != null
-      ? `<tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Reference price</td><td>${formatMoney(params.displayPriceUsd, "USD")} at S/ ${params.exchangeRateApplied.toFixed(3)} per US$</td></tr>`
+  const eurLine =
+    params.displayPriceEur != null && params.exchangeRateApplied != null
+      ? `<tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Reference price</td><td>${formatMoney(params.displayPriceEur, "EUR")} at S/ ${params.exchangeRateApplied.toFixed(3)} per €</td></tr>`
       : "";
 
   try {
@@ -177,8 +177,8 @@ export async function sendTicketReceipt(params: {
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Amount charged</td><td>${formatMoney(params.amountPen, "PEN")}</td></tr>
             <tr><td>Tickets</td><td>${params.ticketQuantity ?? 1}</td></tr>
             ${params.companionName ? `<tr><td>+1</td><td>${escapeHtml(params.companionName)}</td></tr>` : ""}
-            ${params.promotionReference ? `<tr><td>Package price</td><td>${formatMoney(params.promotionReference.amount, params.promotionReference.currency)} at S/ ${params.promotionReference.rate.toFixed(4)} per ${escapeHtml(params.promotionReference.currency)} (${escapeHtml(params.promotionReference.source)}, ${escapeHtml(params.promotionReference.date)})</td></tr>` : ""}
-            ${usdLine}
+            ${params.promotionReference?.currency === "EUR" ? `<tr><td>Package price</td><td>${formatMoney(params.promotionReference.amount, params.promotionReference.currency)} at S/ ${params.promotionReference.rate.toFixed(4)} per ${escapeHtml(params.promotionReference.currency)} (${escapeHtml(params.promotionReference.source)}, ${escapeHtml(params.promotionReference.date)})</td></tr>` : ""}
+            ${eurLine}
             <tr><td style="padding:4px 12px 4px 0; color:#8a8a93;">Payment ID</td><td>${escapeHtml(params.paymentId)}</td></tr>
           </table>
           <p style="margin-top:24px; color:#666;">— Best Buddy UP!</p>

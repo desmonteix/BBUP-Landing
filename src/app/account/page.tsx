@@ -20,7 +20,7 @@ export default async function AccountPage() {
   const supabase = await createClient();
   const { data: tickets } = await supabase
     .from("registrations")
-    .select("id, amount_pen, display_price_usd, payment_status, created_at, ticket_quantity, companion_first_name, companion_last_name, events(title, event_date)")
+    .select("id, amount_pen, display_price_eur, payment_status, created_at, ticket_quantity, companion_first_name, companion_last_name, events(title, event_date)")
     .eq("profile_id", profile.id)
     .eq("kind", "ticket")
     .order("created_at", { ascending: false });
@@ -88,9 +88,9 @@ export default async function AccountPage() {
                       <p className="text-sm font-semibold text-ink">
                         {t.amount_pen != null ? formatMoney(t.amount_pen, "PEN") : "—"}
                       </p>
-                      {t.display_price_usd != null && (
+                      {t.display_price_eur != null && (
                         <p className="text-xs text-ink/45">
-                          {formatMoney(t.display_price_usd, "USD")} ref.
+                          {formatMoney(t.display_price_eur, "EUR")} ref.
                         </p>
                       )}
                       <Badge

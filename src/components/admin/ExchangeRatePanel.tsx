@@ -29,7 +29,7 @@ export function ExchangeRatePanel({ rate }: { rate: ExchangeRatePanelData | null
     <div className="rounded-md border border-border bg-white p-6 shadow-sm">
       <div className="flex items-center gap-2">
         <TrendingUp size={18} className="text-pink" />
-        <h2 className="font-display text-lg font-semibold text-ink">USD → PEN exchange rate</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">EUR → PEN exchange rate</h2>
       </div>
 
       {rate ? (
@@ -40,7 +40,7 @@ export function ExchangeRatePanel({ rate }: { rate: ExchangeRatePanelData | null
             <span className="font-display text-2xl font-semibold text-ink">
               S/ {rate.chargedRate.toFixed(3)}
             </span>
-            <span className="text-sm text-ink/70">per US$ charged to non-Peruvian buyers</span>
+            <span className="text-sm text-ink/70">per € charged to non-Peruvian buyers</span>
           </div>
           <p className="mt-1 text-xs text-ink/70">
             {rate.current.source === "bcrp_auto"

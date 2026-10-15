@@ -54,8 +54,8 @@ export function quoteTickets(price: ResolvedPrice, quantity: 1 | 2, rules: Offer
     available,
     promotionReference,
     chargeAmountPen,
-    displayPriceUsd: price.displayPriceUsd == null ? null
-      : total === subtotal ? Math.round(price.displayPriceUsd * quantity * 100) / 100
+    displayPriceEur: price.displayPriceEur == null ? null
+      : total === subtotal ? Math.round(price.displayPriceEur * quantity * 100) / 100
       : Math.round((chargeAmountPen / price.exchangeRate!) * 100) / 100,
     subtotalPen: subtotal / 100,
     savingsPen: (subtotal - total) / 100,

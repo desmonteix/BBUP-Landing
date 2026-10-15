@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { recordExchangeRate } from "@/lib/exchangeRate";
 
 /**
- * Daily USD/PEN rate refresh (spec §5, §11). Triggered by the Vercel Cron
+ * Daily EUR/PEN rate refresh (spec §5, §11). Triggered by the Vercel Cron
  * job configured in vercel.json (`0 8 * * *` — 08:00 UTC / ~03:00 Lima
  * time, well before any buyer would be checking out).
  *
  * Source: BCRP's (Banco Central de Reserva del Perú) own public statistics
  * API — confirmed directly against https://estadisticas.bcrp.gob.pe (not
  * guessed):
- *   - Series PD04640PD = "Tipo de cambio - TC Sistema bancario SBS
- *     (S/ por US$) - Venta" (daily USD-to-PEN banking-system selling rate).
+ *   - Series PD04648PD = "Tipo de cambio - TC Euro
+ *     (S/ por €) - Venta" (daily EUR-to-PEN selling rate).
  *   - URL shape: .../series/api/{code}/json/{start}/{end}/{lang}, dates as
  *     YYYY-M-D for daily series.
  *   - Response has gaps ("n.d.") on weekends/holidays/not-yet-published
@@ -34,7 +34,7 @@ import { recordExchangeRate } from "@/lib/exchangeRate";
  * to parse. Reproduced directly against estadisticas.bcrp.gob.pe.
  */
 
-const BCRP_SERIES_CODE = "PD04640PD";
+const BCRP_SERIES_CODE = "PD04648PD";
 
 function bcrpDateParam(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -56,6 +56,7 @@ async function fetchLatestBcrpRate(): Promise<number | null> {
     // no caching needed, and a fresh fetch avoids ever serving stale data
     // from an intermediate cache.
     cache: "no-store",
+    signal: AbortSignal.timeout(10000),
     headers: {
       // See the User-Agent quirk note above — required for BCRP to return
       // clean JSON instead of JSON-plus-a-PHP-warning.

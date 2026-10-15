@@ -10,7 +10,7 @@ describe("offer rules validation", () => {
   it("requires the end after the start", () => { expect(offerRulesSchema.safeParse({ promotion: { type: "two_for_one", ...window, endsAt: window.startsAt } }).success).toBe(false); });
   it("requires valid dates", () => { expect(offerRulesSchema.safeParse({ discount: { type: "fixed", value: 10, ...window, startsAt: "invalid" } }).success).toBe(false); });
   it("requires companions to be enabled for 2x1", () => {
-    expect(eventFormSchema.safeParse({ title: "Party", slug: "party", description: "Party", eventDate: "2026-12-01T20:00", location: "Lima", type: "paid", pricePen: 90, priceUsd: 30, category: "Events", status: "open", termsText: "Terms", allowCompanion: false, offerRules: { promotion: { type: "two_for_one", ...window } } }).success).toBe(false);
+    expect(eventFormSchema.safeParse({ title: "Party", slug: "party", description: "Party", eventDate: "2026-12-01T20:00", location: "Lima", type: "paid", pricePen: 90, priceEur: 30, category: "Events", status: "open", termsText: "Terms", allowCompanion: false, offerRules: { promotion: { type: "two_for_one", ...window } } }).success).toBe(false);
   });
 });
 

@@ -58,7 +58,7 @@ export function SignupForm() {
           ))}
         </select>
         <p className="mt-1 text-xs text-ink/45">
-          This determines your ticket pricing (PEN for Peruvian, USD otherwise). You can
+          This determines your ticket pricing (PEN for Peruvian, EUR otherwise). You can
           correct it later from your account.
         </p>
       </div>

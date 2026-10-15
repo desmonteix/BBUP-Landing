@@ -39,7 +39,7 @@ function parseEventForm(formData: FormData) {
     type: formData.get("type"),
     category: formData.get("category"),
     pricePen: formData.get("pricePen") || undefined,
-    priceUsd: formData.get("priceUsd") || undefined,
+    priceEur: formData.get("priceEur") || undefined,
     capacity: formData.get("capacity") || undefined,
     status: formData.get("status"),
     allowCompanion: formData.get("allowCompanion") === "on",
@@ -77,7 +77,7 @@ export async function createEvent(
     type: parsed.data.type,
     category: parsed.data.category,
     price_pen: parsed.data.type === "paid" ? parsed.data.pricePen : null,
-    price_usd: parsed.data.type === "paid" ? parsed.data.priceUsd : null,
+    price_eur: parsed.data.type === "paid" ? parsed.data.priceEur : null,
     capacity: parsed.data.capacity ?? null,
     status: parsed.data.status,
     allow_companion: parsed.data.allowCompanion,
@@ -126,7 +126,7 @@ export async function updateEvent(
       type: parsed.data.type,
       category: parsed.data.category,
       price_pen: parsed.data.type === "paid" ? parsed.data.pricePen : null,
-      price_usd: parsed.data.type === "paid" ? parsed.data.priceUsd : null,
+      price_eur: parsed.data.type === "paid" ? parsed.data.priceEur : null,
       capacity: parsed.data.capacity ?? null,
       status: parsed.data.status,
       allow_companion: parsed.data.allowCompanion,
@@ -167,7 +167,7 @@ export type ExchangeRateFormState = {
 
 /**
  * Manual fallback for the daily BCRP cron (spec §5, §11) — an organizer can
- * set today's USD -> PEN rate by hand if the automated job is down for an
+ * set today's EUR -> PEN rate by hand if the automated job is down for an
  * extended period. Inserts a new `source='manual_override'` row rather
  * than mutating one in place, same append-only pattern the cron job uses,
  * so it still shows up correctly in any receipt's audit trail.

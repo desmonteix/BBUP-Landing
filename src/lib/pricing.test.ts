@@ -11,7 +11,7 @@ function rate(value: number, source: ExchangeRateSource): ExchangeRate {
   };
 }
 
-const paidEvent = { price_pen: 90, price_usd: 30 };
+const paidEvent = { price_pen: 90, price_eur: 30 };
 
 describe("resolvePriceForNationality", () => {
   describe("Peruvian buyers", () => {
@@ -20,7 +20,7 @@ describe("resolvePriceForNationality", () => {
 
       expect(result).toEqual({
         chargeAmountPen: 90,
-        displayPriceUsd: null,
+        displayPriceEur: null,
         exchangeRate: null,
         includesMargin: false,
       });
@@ -43,19 +43,19 @@ describe("resolvePriceForNationality", () => {
     it("adds the markup to the BCRP rate before converting", () => {
       const result = resolvePriceForNationality("German", paidEvent, rate(3.5, "bcrp_auto"));
 
-      // BCRP 3.5 + 0.1 margin = 3.6 charged; 30 USD * 3.6 = S/ 108.00
+      // BCRP 3.5 + 0.1 margin = 3.6 charged; 30 EUR * 3.6 = S/ 108.00
       expect(result?.exchangeRate).toBe(3.6);
       expect(result?.chargeAmountPen).toBe(108);
-      expect(result?.displayPriceUsd).toBe(30);
+      expect(result?.displayPriceEur).toBe(30);
     });
 
     it("reports the same rate it charged, so the buyer's arithmetic reconciles", () => {
       const result = resolvePriceForNationality("German", paidEvent, rate(3.5, "bcrp_auto"));
 
       // The buyer is shown `exchangeRate` and `chargeAmountPen` side by side
-      // (TicketForm). price_usd * shown rate must equal the charged amount,
+      // (TicketForm). price_eur * shown rate must equal the charged amount,
       // or the displayed conversion looks like it is hiding a fee.
-      expect(result!.displayPriceUsd! * result!.exchangeRate!).toBeCloseTo(
+      expect(result!.displayPriceEur! * result!.exchangeRate!).toBeCloseTo(
         result!.chargeAmountPen,
         10
       );
@@ -75,7 +75,7 @@ describe("resolvePriceForNationality", () => {
     it("rounds the charged amount to two decimals", () => {
       const result = resolvePriceForNationality(
         "French",
-        { price_pen: 90, price_usd: 29.99 },
+        { price_pen: 90, price_eur: 29.99 },
         rate(3.777, "bcrp_auto")
       );
 
@@ -85,18 +85,18 @@ describe("resolvePriceForNationality", () => {
     });
 
     it("rounds half-cent boundaries up instead of losing a cent to float error", () => {
-      // `Math.round(usd * rate * 100) / 100` silently loses a cent whenever the
+      // `Math.round(eur * rate * 100) / 100` silently loses a cent whenever the
       // exact product lands on a half-cent that IEEE-754 represents just below
       // the boundary — the same class of bug as Math.round(2.675 * 100) / 100
       // returning 2.67. Every occurrence undercharges, so it leaks revenue
       // rather than overcharging a buyer, which is why it went unnoticed.
       const result = resolvePriceForNationality(
         "German",
-        { price_pen: 5, price_usd: 1.15 },
+        { price_pen: 5, price_eur: 1.15 },
         rate(1, "bcrp_auto")
       );
 
-      // 1.15 USD at 1.100 = exactly S/ 1.265 -> half-up -> S/ 1.27
+      // 1.15 EUR at 1.100 = exactly S/ 1.265 -> half-up -> S/ 1.27
       expect(result?.exchangeRate).toBe(1.1);
       expect(result?.chargeAmountPen).toBe(1.27);
     });
@@ -104,20 +104,20 @@ describe("resolvePriceForNationality", () => {
     it("stays exact across a sweep of prices and rates", () => {
       // Guards the whole conversion against float drift rather than the single
       // case above: compares every result to integer arithmetic on cents.
-      for (let usdCents = 100; usdCents <= 20000; usdCents += 37) {
+      for (let eurCents = 100; eurCents <= 20000; eurCents += 37) {
         for (let rateMilli = 3000; rateMilli <= 4500; rateMilli += 131) {
-          const priceUsd = usdCents / 100;
+          const priceEur = eurCents / 100;
           const baseRate = (rateMilli - 100) / 1000;
           const result = resolvePriceForNationality(
             "German",
-            { price_pen: 1, price_usd: priceUsd },
+            { price_pen: 1, price_eur: priceEur },
             rate(baseRate, "bcrp_auto")
           );
 
           // Oracle built from quotient and remainder rather than Math.round,
           // so it shares no arithmetic with the code under test: it states the
           // half-up rule outright instead of delegating it.
-          const product = usdCents * rateMilli; // exact: integer * integer
+          const product = eurCents * rateMilli; // exact: integer * integer
           const quotient = Math.floor(product / 1000);
           const remainder = product - quotient * 1000;
           const expectedCents = remainder >= 500 ? quotient + 1 : quotient;
@@ -156,7 +156,7 @@ describe("resolvePriceForNationality", () => {
       );
 
       expect(result?.exchangeRate).toBe(3.752);
-      expect(result!.displayPriceUsd! * result!.exchangeRate!).toBeCloseTo(
+      expect(result!.displayPriceEur! * result!.exchangeRate!).toBeCloseTo(
         result!.chargeAmountPen,
         10
       );
@@ -189,10 +189,10 @@ describe("resolvePriceForNationality", () => {
 
     it("returns null when the event is missing either source price", () => {
       const r = rate(3.5, "bcrp_auto");
-      expect(resolvePriceForNationality("German", { price_pen: null, price_usd: 30 }, r)).toBeNull();
-      expect(resolvePriceForNationality("German", { price_pen: 90, price_usd: null }, r)).toBeNull();
+      expect(resolvePriceForNationality("German", { price_pen: null, price_eur: 30 }, r)).toBeNull();
+      expect(resolvePriceForNationality("German", { price_pen: 90, price_eur: null }, r)).toBeNull();
       expect(
-        resolvePriceForNationality("Peruvian", { price_pen: null, price_usd: null }, r)
+        resolvePriceForNationality("Peruvian", { price_pen: null, price_eur: null }, r)
       ).toBeNull();
     });
   });

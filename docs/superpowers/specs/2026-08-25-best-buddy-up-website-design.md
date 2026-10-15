@@ -67,7 +67,7 @@ backend (API routes / Server Actions).
     conversion from the student's home currency happens automatically on
     their own card network/issuing bank's side, same mechanism as
     Airbnb/Netflix — but the amount Mercado Pago itself processes is always
-    soles. There is no way to make it charge USD directly.
+    soles. There is no way to make it charge EUR directly.
   - Integration uses Checkout Pro's hosted payment page so card data never
     touches our server (minimizes PCI scope).
 - **Transactional email:** Resend (free tier) for RSVP/ticket confirmations.
@@ -99,12 +99,12 @@ events
   type          enum('free', 'paid')
   price_pen     numeric, nullable (required if type = 'paid')
                 -- charged directly to Peruvian buyers
-  price_usd     numeric, nullable (required if type = 'paid')
+  price_eur     numeric, nullable (required if type = 'paid')
                 -- DISPLAY price for exchange-student buyers only. Never
-                -- charged directly (Mercado Pago can't process USD, see
+                -- charged directly (Mercado Pago can't process EUR, see
                 -- §3) — converted to a PEN amount at checkout time using
                 -- exchange_rates.rate (below), rounded to 2 decimals. The
-                -- checkout UI shows both: "$price_usd" as the headline
+                -- checkout UI shows both: "$price_eur" as the headline
                 -- price and "≈ S/ <converted>" so the buyer isn't
                 -- surprised by the charge.
   capacity      integer, nullable (null = unlimited)
@@ -128,8 +128,8 @@ registrations
   amount_pen            numeric, nullable
                          -- the ACTUAL amount charged via Mercado Pago,
                          -- always PEN, for every ticket regardless of buyer
-  display_price_usd     numeric, nullable
-                         -- set only for exchange-student tickets: the USD
+  display_price_eur     numeric, nullable
+                         -- set only for exchange-student tickets: the EUR
                          -- figure they were shown, kept for their receipt/
                          -- record even though PEN is what was charged
   exchange_rate_applied numeric, nullable
@@ -143,7 +143,7 @@ registrations
 
 exchange_rates
   id              uuid pk
-  rate            numeric        -- current USD -> PEN rate, e.g. 3.75
+  rate            numeric        -- current EUR -> PEN rate, e.g. 3.75
   source          enum('bcrp_auto', 'manual_override')
   updated_at      timestamptz
   -- single current-rate row (or latest-by-updated_at); see §5 for how it's
@@ -187,11 +187,11 @@ newsletter_subscribers
     buyer's price using their profile's `nationality`:
     - `nationality == 'Peruvian'` → shows `events.price_pen`, charges that
       exact amount in PEN via Mercado Pago.
-    - any other nationality → shows `events.price_usd` as the headline
-      price (e.g. "$30"), plus "≈ S/ <price_usd × current exchange_rates.rate,
+    - any other nationality → shows `events.price_eur` as the headline
+      price (e.g. "€30"), plus "≈ S/ <price_eur × current exchange_rates.rate,
       rounded to 2 decimals>" underneath so the buyer knows what will
       actually be charged. Mercado Pago charges that converted PEN amount —
-      it cannot process USD directly (§3). The rate used is stamped onto
+      it cannot process EUR directly (§3). The rate used is stamped onto
       the registration (`exchange_rate_applied`) at charge time.
 
     Only the resolved price for the logged-in buyer is ever sent to the
@@ -200,13 +200,13 @@ newsletter_subscribers
     tools either. Checkout proceeds into Mercado Pago's hosted Checkout Pro
     for the resolved PEN amount → on success, a webhook marks the
     `registrations` row `payment_status='paid'`, sets `amount_pen` (and
-    `display_price_usd`/`exchange_rate_applied` if applicable), and stores
+    `display_price_eur`/`exchange_rate_applied` if applicable), and stores
     `mercadopago_payment_id` → confirmation/receipt email via Resend
-    (showing the PEN amount charged, and the USD reference if applicable).
+    (showing the PEN amount charged, and the EUR reference if applicable).
     On failure, the row stays `pending`/`failed` and the buyer sees a retry
     option.
   - **Daily exchange-rate update:** a Vercel Cron job runs once a day,
-    hitting a Route Handler that fetches Peru's official USD/PEN rate from
+    hitting a Route Handler that fetches Peru's official EUR/PEN rate from
     BCRP's (Banco Central de Reserva del Perú) public statistics API —
     confirm the exact series endpoint/code against BCRP's own docs at
     implementation time, don't guess it — and writes a new `exchange_rates`
@@ -231,11 +231,11 @@ newsletter_subscribers
 - **Admin (`/admin`)** — Supabase-Auth-gated login, restricted to the
   `admins` allow-list (organizers only, separate from attendee accounts).
   Event list with create/edit (title, description, date, location, cover
-  image, free/paid + PEN price + USD display price, capacity, open/closed
+  image, free/paid + PEN price + EUR display price, capacity, open/closed
   toggle, committee category — dropdown of the 9 committees in §6) and, per
   event, a registrant table (name, email, phone, nationality, PEN amount
-  charged, USD reference shown if applicable, payment status). Also shows
-  the current USD→PEN exchange rate, when it last updated, and a manual
+  charged, EUR reference shown if applicable, payment status). Also shows
+  the current EUR→PEN exchange rate, when it last updated, and a manual
   override field (see §5).
 
 ## 6. Visual design & animation
@@ -304,7 +304,7 @@ swapped for real photos later. Recommended shot list:
 
 - Every RSVP or ticket purchase triggers a Resend confirmation email with
   event details (and Mercado Pago receipt info for paid tickets — the PEN
-  amount actually charged, plus the USD reference figure if the buyer is an
+  amount actually charged, plus the EUR reference figure if the buyer is an
   exchange student).
 - A simple newsletter signup (email only) stores rows in
   `newsletter_subscribers`. No campaign-sending tool is included in this
@@ -342,15 +342,15 @@ known at the time it was chosen. Alternatives evaluated:
   DNI + a Peruvian bank account, no RUC. Public, documented, free Checkout
   Pro API. ~4% flat fee, same-day settlement. Its one real constraint —
   Peru's Checkout Pro only ever processes in PEN, even for international
-  cards — is fully accounted for in §3/§4/§5 (USD is now a display-only
+  cards — is fully accounted for in §3/§4/§5 (EUR is now a display-only
   reference price for exchange students, converted to PEN at charge time
   via the daily-updated `exchange_rates` table).
 - **PayPal:** personal account also needs only an ID, no RUC, and does
-  settle in real USD. Ruled out on cost/practicality: ~5.4% + $0.30 per
+  settle in real EUR. Ruled out on cost/practicality: ~5.4% + $0.30 per
   transaction domestically, **+1.5% more** cross-border (so up to ~6.9%);
   withdrawal to a Peruvian bank takes up to 7 business days and PayPal's own
-  USD→PEN conversion runs 3-5% below market rate on top of a withdrawal
-  fee; Peruvian buyers would also need a USD-based PayPal balance, a
+  EUR→PEN conversion runs 3-5% below market rate on top of a withdrawal
+  fee; Peruvian buyers would also need a EUR-based PayPal balance, a
   rougher experience than paying directly in soles.
 
 The codebase's existing Culqi integration (checkout button, charge route,
@@ -363,7 +363,7 @@ equivalents.
   natural, DNI + bank account, no RUC — see §10) and supply real API
   credentials; sandbox/test credentials are enough to build/test against.
 - **BCRP exchange-rate API series code** — confirm the exact endpoint/series
-  ID for the daily USD/PEN rate against BCRP's own documentation at
+  ID for the daily EUR/PEN rate against BCRP's own documentation at
   implementation time (see §5); don't hardcode a guessed series code.
 - Domain name — user will purchase once the site is finished; deploy to
   Vercel's default subdomain in the meantime.

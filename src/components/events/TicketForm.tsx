@@ -129,10 +129,10 @@ export function TicketForm({
               <p className="mt-1 text-sm text-ink/70">{formatMoney(totalPrice.chargeAmountPen, "PEN")} a cobrar en soles</p>
               <p className="mt-1 text-xs text-ink/70">Tipo de cambio: S/ {totalPrice.promotionReference.rate.toFixed(4)} por {totalPrice.promotionReference.currency}. Fuente: {totalPrice.promotionReference.source}, {totalPrice.promotionReference.date}.</p>
             </>
-          ) : totalPrice.displayPriceUsd != null && totalPrice.exchangeRate != null ? (
+          ) : totalPrice.displayPriceEur != null && totalPrice.exchangeRate != null ? (
             <>
               <p className="mt-1 font-display text-2xl font-semibold text-ink">
-                {formatMoney(totalPrice.displayPriceUsd, "USD")}
+                {formatMoney(totalPrice.displayPriceEur, "EUR")}
               </p>
               <p className="mt-1 text-sm text-ink/70">
                 ≈ {formatMoney(totalPrice.chargeAmountPen, "PEN")} charged to your card
@@ -140,7 +140,7 @@ export function TicketForm({
               <p className="mt-1 text-xs text-ink/70">
                 Mercado Pago (our payment provider in Peru) only processes soles, so your card is
                 charged at our conversion rate of S/ {totalPrice.exchangeRate.toFixed(3)} per
-                US$
+                €
                 {totalPrice.includesMargin
                   ? ": Peru's official BCRP rate plus a small margin covering payment costs."
                   : ", set by hand by our team."}{" "}

@@ -48,7 +48,7 @@ export default async function CheckoutReturnPage({
   let registration: {
     payment_status: string;
     amount_pen: number | null;
-    display_price_usd: number | null;
+    display_price_eur: number | null;
   } | null = null;
   let eventTitle: string | null = null;
 
@@ -56,7 +56,7 @@ export default async function CheckoutReturnPage({
     const admin = createAdminClient();
     const { data } = await admin
       .from("registrations")
-      .select("payment_status, amount_pen, display_price_usd, profile_id, event_id")
+      .select("payment_status, amount_pen, display_price_eur, profile_id, event_id")
       .eq("id", registrationId)
       .maybeSingle();
 
@@ -77,7 +77,7 @@ export default async function CheckoutReturnPage({
             await applyPaymentToRegistration(payment);
             const { data: settled, error: rereadError } = await admin
               .from("registrations")
-              .select("payment_status, amount_pen, display_price_usd")
+              .select("payment_status, amount_pen, display_price_eur")
               .eq("id", registrationId)
               .maybeSingle();
             if (rereadError) {

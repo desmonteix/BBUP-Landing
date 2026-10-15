@@ -102,19 +102,19 @@ session) or test against a Vercel preview deployment.
 charges in PEN, even for international cards — the card network/issuing
 bank converts on the buyer's side, same mechanism as Airbnb/Netflix, but
 the amount Mercado Pago itself processes is always soles. So
-`events.price_usd` is a **display-only** reference price for exchange
+`events.price_eur` is a **display-only** reference price for exchange
 students; the actual charge is always `events.price_pen` (Peruvian buyers)
-or `events.price_usd × current exchange rate` rounded to 2 decimals
+or `events.price_eur × current exchange rate` rounded to 2 decimals
 (everyone else). See "Exchange rates" below for where that rate comes from.
 
 ### 5. Exchange rates (BCRP daily cron)
 
 A Vercel Cron Job (`vercel.json`, `0 8 * * *` — 08:00 UTC / ~03:00 Lima
 time) hits `GET /api/cron/exchange-rate` once a day, which pulls Peru's
-official USD/PEN rate from BCRP's (Banco Central de Reserva del Perú)
-public statistics API — series `PD04640PD` ("TC Sistema bancario SBS,
+official EUR/PEN rate from BCRP's (Banco Central de Reserva del Perú)
+public statistics API — series `PD04648PD` ("TC Euro,
 venta"), confirmed directly against
-[estadisticas.bcrp.gob.pe](https://estadisticas.bcrp.gob.pe/estadisticas/series/diarias/resultados/PD04640PD/html)
+[estadisticas.bcrp.gob.pe](https://estadisticas.bcrp.gob.pe/estadisticas/series/diarias/resultados/PD04648PD/html)
 rather than guessed — and writes a new `exchange_rates` row.
 
 - Set `CRON_SECRET` in both `.env.local` and your Vercel project's env
@@ -122,8 +122,7 @@ rather than guessed — and writes a new `exchange_rates` row.
   when it invokes a scheduled Cron Job, and the route checks it.
 - Cron Jobs only run on deployed Vercel environments, not `next dev` — for
   local testing, hit `http://localhost:3000/api/cron/exchange-rate`
-  directly with that same header, or just run `supabase/seed.sql`'s
-  starter rate.
+  directly with that same header, or set a verified EUR/PEN rate in /admin.
 - If the BCRP fetch ever fails, the previous rate stays in effect
   (checkout never breaks because the cron job had a bad day) — the admin
   dashboard flags the rate as stale after 48 hours and an organizer can set
@@ -173,7 +172,7 @@ npm run placeholders  # regenerate the SVG placeholder images in public/images
   requirement in this build.** `src/lib/pricing.ts#resolvePriceForNationality`
   is the single choke point that turns `(nationality, event, exchangeRate)`
   into exactly one `ResolvedPrice` — always a real PEN charge amount, plus
-  a USD reference figure *only* for non-Peruvian buyers. Every path that
+  a EUR reference figure *only* for non-Peruvian buyers. Every path that
   can reach the browser — `src/lib/db/events.ts#toPublicEvent`, the
   `createTicketIntent` Server Action, the Mercado Pago preference it
   creates — passes through it and only ever forwards the one resolved
@@ -215,7 +214,7 @@ npm run placeholders  # regenerate the SVG placeholder images in public/images
   the last spot could theoretically slightly overbook. Low-risk for this
   org's scale; revisit with a Postgres advisory lock or a `capacity`
   check constraint + retry if it ever matters.
-- The BCRP series choice (`PD04640PD`, the banking-system *selling* rate)
+- The BCRP series choice (`PD04648PD`, the banking-system *selling* rate)
   is a reasonable, verified default for "the official reference rate," but
   worth a deliberate look if the org ever wants to fine-tune margin on
   exchange-student tickets (e.g. buy vs. sell vs. mid-market rate).
@@ -237,7 +236,7 @@ controls configure the rules that change checkout prices during their schedules.
 
 Paid events can optionally allow a named companion. Both first and last name are
 required. Before offers, the buyer pays two entries at their own profile's unit price (including
-the same USD-to-PEN conversion when applicable). One registration stores the two
+the same EUR-to-PEN conversion when applicable). One registration stores the two
 attendees and the total charge, so Mercado Pago settles both together. Capacity,
 admin counts, account details and receipts include the companion. Existing
 registrations remain one entry; existing events disable +1 by default.
@@ -286,7 +285,7 @@ payment is sent to Mercado Pago. Capacity checks and terms acceptance still appl
 ## Custom package promotions (including EUR)
 
 In **Promociones**, select **Entradas por un precio personalizado**, set the package
-quantity (one or two), its total price and its currency (PEN, USD or EUR), then set
+quantity (one or two), its total price and its currency (PEN or EUR), then set
 its start/end. Example: quantity 2, total 45, currency EUR. Two-ticket packages
 require +1 permission and both companion names. Offers still never stack; the
 cheapest valid total wins, and a promotion never raises the regular price.
@@ -294,8 +293,7 @@ cheapest valid total wins, and a promotion never raises the regular price.
 EUR/PEN is obtained automatically from the BCRP daily selling-rate series
 [PD04648PD](https://estadisticas.bcrp.gob.pe/estadisticas/series/diarias/tipo-de-cambio),
 using its latest published value within the past ten days and an hourly Next.js
-fetch cache. No API key or manual EUR rate is required. USD packages use the existing
-USD/PEN exchange-rate flow. Package conversion is independent of buyer nationality.
+fetch cache. No API key is required. Package conversion is independent of buyer nationality.
 The package total and its source currency/rate/date appear at checkout and on the
 receipt, and are persisted in `pricing_snapshot`. Mercado Pago still charges PEN.
 If a required rate cannot be obtained, that package cannot be purchased; the app
@@ -303,3 +301,18 @@ never guesses a conversion. A changed total requires the buyer to reload.
 
 This extends the existing `offer_rules` and `pricing_snapshot` JSON fields introduced
 in migration 0005; no additional SQL migration is needed.
+
+## EUR pricing migration
+
+Apply `supabase/migrations/0006_euro_pricing.sql` before running this version.
+Event prices retain their numeric amounts and are now denominated in EUR
+(30 USD becomes 30 EUR); configured USD packages are likewise changed to EUR.
+Historical payment amounts, USD references and pricing snapshots are preserved.
+The account and admin screens show their original PEN charge without relabeling
+historical USD references as EUR.
+
+Existing exchange-rate rows are tagged USD and excluded from EUR checkout.
+After migration, run the authenticated `/api/cron/exchange-rate` endpoint or
+set a verified EUR/PEN manual rate in `/admin`. Until an EUR rate is available,
+regular non-Peruvian checkout remains unavailable. No guessed rate is seeded.
+Automatic rates retain the existing S/ 0.10 margin; manual rates are final.

@@ -5,11 +5,11 @@
  * Do not redeclare these shapes anywhere else; import from here.
  *
  * IMPORTANT (pricing safety): `PublicEvent` (sent to the browser) never
- * carries both `events.price_pen` and `events.price_usd`. `resolved_price`
+ * carries both `events.price_pen` and `events.price_eur`. `resolved_price`
  * is populated server-side from the viewer's OWN nationality and always
- * charges in PEN (Mercado Pago's Peru Checkout Pro cannot process USD —
+ * charges in PEN (Mercado Pago's Peru Checkout Pro cannot process EUR —
  * see src/lib/pricing.ts) — for non-Peruvian buyers it additionally carries
- * their USD reference figure and the exchange rate used to convert it, but
+ * their EUR reference figure and the exchange rate used to convert it, but
  * never the Peruvian PEN price, and vice versa.
  */
 
@@ -70,7 +70,7 @@ export type EventStatus = "open" | "closed";
 
 export interface OfferWindow { startsAt: string; endsAt: string }
 export interface PromotionExchangeRate {
-  currency: "EUR" | "USD";
+  currency: "EUR";
   rate: number;
   date: string;
   source: string;
@@ -78,7 +78,7 @@ export interface PromotionExchangeRate {
 export interface PromotionReference extends PromotionExchangeRate { amount: number }
 
 export interface OfferRules {
-  promotion?: OfferWindow & ({ type: "two_for_one" } | { type: "bundle_price"; quantity: 1 | 2; amount: number; currency: "PEN" | "USD" | "EUR" });
+  promotion?: OfferWindow & ({ type: "two_for_one" } | { type: "bundle_price"; quantity: 1 | 2; amount: number; currency: "PEN" | "EUR" });
   discount?: OfferWindow & { type: "percentage" | "fixed"; value: number };
 }
 
@@ -94,7 +94,7 @@ export interface EventRow {
   location: string;
   type: EventType;
   price_pen: number | null;
-  price_usd: number | null;
+  price_eur: number | null;
   capacity: number | null;
   status: EventStatus;
   category: EventCategory;
@@ -140,13 +140,13 @@ export interface PublicEvent {
  * What a buyer sees and what actually gets charged. `chargeAmountPen` is
  * ALWAYS what Mercado Pago will process — Peruvian buyers get it straight
  * from `events.price_pen`; everyone else gets it converted from
- * `events.price_usd` at the current `exchange_rates.rate`. `displayPriceUsd`
+ * `events.price_eur` at the current `exchange_rates.rate`. `displayPriceEur`
  * and `exchangeRate` are null for Peruvian buyers (no conversion happened)
- * and set for everyone else, purely so the UI/receipt can show "$30 ≈ S/ 112.50".
+ * and set for everyone else, purely so the UI/receipt can show "€30 ≈ S/ 112.50".
  */
 export interface ResolvedPrice {
   chargeAmountPen: number;
-  displayPriceUsd: number | null;
+  displayPriceEur: number | null;
   exchangeRate: number | null;
   /**
    * Whether `exchangeRate` is the BCRP rate plus our margin, as opposed to a
@@ -176,7 +176,7 @@ export interface Registration {
   companion_first_name: string | null;
   companion_last_name: string | null;
   amount_pen: number | null;
-  display_price_usd: number | null;
+  display_price_eur: number | null;
   exchange_rate_applied: number | null;
   payment_status: PaymentStatus;
   mercadopago_payment_id: string | null;

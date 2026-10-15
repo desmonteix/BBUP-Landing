@@ -5,7 +5,7 @@ import type { ExchangeRate } from "@/lib/types";
 const STALE_AFTER_HOURS = 48;
 
 /**
- * Latest USD -> PEN rate, whichever source it came from (BCRP cron or an
+ * Latest EUR -> PEN rate, whichever source it came from (BCRP cron or an
  * organizer's manual override — see spec §5, §11). Returns null if the
  * table is empty (fresh install before the cron has run once and before
  * any admin has set a manual rate) — callers must treat that as "can't
@@ -16,6 +16,7 @@ export async function getCurrentExchangeRate(): Promise<ExchangeRate | null> {
   const { data, error } = await admin
     .from("exchange_rates")
     .select("id, rate, source, updated_at")
+    .eq("base_currency", "EUR")
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -49,7 +50,7 @@ export async function recordExchangeRate(
   const admin = createAdminClient();
   const { error } = await admin
     .from("exchange_rates")
-    .insert({ rate, source, updated_at: new Date().toISOString() });
+    .insert({ rate, source, base_currency: "EUR", updated_at: new Date().toISOString() });
 
   if (error) {
     console.error("[exchangeRate] insert failed", error);

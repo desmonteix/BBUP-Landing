@@ -127,20 +127,20 @@ export function EventForm({
             />
           </div>
           <div>
-            <Label htmlFor="priceUsd">Price (USD) — display only, exchange students</Label>
+            <Label htmlFor="priceEur">Price (EUR) — display only, exchange students</Label>
             <Input
-              id="priceUsd"
-              name="priceUsd"
+              id="priceEur"
+              name="priceEur"
               type="number"
               step="0.01"
               min="0"
-              defaultValue={event?.price_usd ?? undefined}
+              defaultValue={event?.price_eur ?? undefined}
               required
             />
             <p className="mt-1 text-xs text-ink/45">
               Shown as the headline price to non-Peruvian buyers. Mercado Pago can only
               charge soles, so at checkout this is converted to PEN at the current
-              exchange rate (see the Exchange rate panel below) — never charged in USD
+              exchange rate (see the Exchange rate panel below) — never charged in EUR
               directly.
             </p>
           </div>
@@ -178,7 +178,7 @@ export function EventForm({
               {promotionType === "bundle_price" && <div className="grid gap-3 sm:grid-cols-3">
                 <div><Label htmlFor="promotionQuantity">Entradas por paquete</Label><Input id="promotionQuantity" name="promotionQuantity" type="number" min="1" max="2" step="1" required defaultValue={bundle?.quantity ?? 2} /></div>
                 <div><Label htmlFor="promotionAmount">Precio total del paquete</Label><Input id="promotionAmount" name="promotionAmount" type="number" min="0.01" max="999999" step="0.01" required defaultValue={bundle?.amount} placeholder="45.00" /></div>
-                <div><Label htmlFor="promotionCurrency">Moneda del paquete</Label><Select id="promotionCurrency" name="promotionCurrency" defaultValue={bundle?.currency ?? "EUR"}><option value="EUR">EUR (euros)</option><option value="PEN">PEN (soles)</option><option value="USD">USD (dólares)</option></Select></div>
+                <div><Label htmlFor="promotionCurrency">Moneda del paquete</Label><Select id="promotionCurrency" name="promotionCurrency" defaultValue={bundle?.currency ?? "EUR"}><option value="EUR">EUR (euros)</option><option value="PEN">PEN (soles)</option></Select></div>
                 <p className="text-xs text-ink/60 sm:col-span-3">El tipo de cambio se actualiza automáticamente. Mercado Pago cobra en soles; el comprador ve el precio de referencia y su conversión.</p>
               </div>}
               {promotionType !== "none" && <>

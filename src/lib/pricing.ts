@@ -4,8 +4,8 @@ import type { ExchangeRate, Nationality, ResolvedPrice, OfferRules, PromotionExc
 export { formatMoney } from "@/lib/money";
 
 /**
- * Margin added on top of the official BCRP rate before converting a USD
- * price to the soles actually charged. Absolute, in soles per US$: a BCRP
+ * Margin added on top of the official BCRP rate before converting a EUR
+ * price to the soles actually charged. Absolute, in soles per €: a BCRP
  * rate of 3.500 charges at 3.600.
  *
  * It covers the spread between BCRP's reference rate and what the
@@ -54,10 +54,10 @@ export function effectiveRateFor(currentExchangeRate: ExchangeRate): number {
  * amount:
  *   - Peruvian buyers: `events.price_pen`, charged as-is. No conversion
  *     happens, so the markup never touches them.
- *   - Everyone else: `events.price_usd` converted to PEN at the effective
- *     rate (see `effectiveRateFor`), rounded to 2 decimals. The USD figure
+ *   - Everyone else: `events.price_eur` converted to PEN at the effective
+ *     rate (see `effectiveRateFor`), rounded to 2 decimals. The EUR figure
  *     and the rate used are carried along ONLY so the UI/receipt can show
- *     "$30 ≈ S/ 108.00" — never as something that gets charged directly.
+ *     "€30 ≈ S/ 108.00" — never as something that gets charged directly.
  *
  * Takes the whole `ExchangeRate` row rather than a bare number because the
  * markup depends on where the rate came from; passing `.rate` alone would
@@ -65,11 +65,11 @@ export function effectiveRateFor(currentExchangeRate: ExchangeRate): number {
  *
  * `exchangeRate` in the result is always the rate actually applied, never
  * the raw BCRP figure — TicketForm shows it next to `chargeAmountPen`, so
- * `displayPriceUsd * exchangeRate` has to equal what the card is charged or
+ * `displayPriceEur * exchangeRate` has to equal what the card is charged or
  * the buyer sees arithmetic that does not add up.
  *
  * Hard rule: callers must take the returned `ResolvedPrice` and must never
- * also forward the source event's `price_pen`/`price_usd` fields to the
+ * also forward the source event's `price_pen`/`price_eur` fields to the
  * client alongside it.
  *
  * Returns null when pricing can't be safely resolved: missing source
@@ -78,15 +78,15 @@ export function effectiveRateFor(currentExchangeRate: ExchangeRate): number {
  */
 export function resolvePriceForNationality(
   nationality: Nationality | string,
-  event: { price_pen: number | null; price_usd: number | null },
+  event: { price_pen: number | null; price_eur: number | null },
   currentExchangeRate: ExchangeRate | null
 ): ResolvedPrice | null {
-  if (event.price_pen == null || event.price_usd == null) return null;
+  if (event.price_pen == null || event.price_eur == null) return null;
 
   if (nationality === "Peruvian") {
     return {
       chargeAmountPen: event.price_pen,
-      displayPriceUsd: null,
+      displayPriceEur: null,
       exchangeRate: null,
       includesMargin: false,
     };
@@ -96,29 +96,28 @@ export function resolvePriceForNationality(
 
   const appliedRate = effectiveRateFor(currentExchangeRate);
 
-  // Multiply as integers, not floats. `Math.round(usd * rate * 100) / 100`
+  // Multiply as integers, not floats. `Math.round(eur * rate * 100) / 100`
   // loses a cent whenever the exact product lands on a half-cent that IEEE-754
   // stores a hair below the boundary (the Math.round(2.675 * 100) / 100 === 2.67
-  // problem): $1.15 at 1.100 is exactly S/ 1.265 but rounds down to S/ 1.26.
+  // problem): €1.15 at 1.100 is exactly S/ 1.265 but rounds down to S/ 1.26.
   // Cents x thousandths is an exact integer product, so the only rounding left
   // is the deliberate one, half-up, to the nearest cent.
-  const usdCents = Math.round(event.price_usd * 100);
+  const eurCents = Math.round(event.price_eur * 100);
   const rateMilli = Math.round(appliedRate * 1000);
-  const chargeAmountPen = Math.round((usdCents * rateMilli) / 1000) / 100;
+  const chargeAmountPen = Math.round((eurCents * rateMilli) / 1000) / 100;
 
   return {
     chargeAmountPen,
-    displayPriceUsd: event.price_usd,
+    displayPriceEur: event.price_eur,
     exchangeRate: appliedRate,
     includesMargin: currentExchangeRate.source === "bcrp_auto",
   };
 }
 
 /** A package currency has its own conversion, independent of buyer nationality. */
-export function resolvePromotionRate(rules: OfferRules, usdRate: ExchangeRate | null, euroRate: PromotionExchangeRate | null): PromotionExchangeRate | null {
+export function resolvePromotionRate(rules: OfferRules, euroRate: PromotionExchangeRate | null): PromotionExchangeRate | null {
   const promotion = rules?.promotion;
   if (promotion?.type !== "bundle_price") return null;
   if (promotion.currency === "EUR") return euroRate;
-  if (promotion.currency === "USD" && usdRate) return { currency: "USD", rate: effectiveRateFor(usdRate), date: usdRate.updated_at, source: usdRate.source };
   return null;
 }

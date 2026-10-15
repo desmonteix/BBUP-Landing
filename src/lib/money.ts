@@ -4,8 +4,8 @@
  * nationality -> price resolution logic).
  */
 
-export function formatMoney(amount: number, currency: "PEN" | "USD" | "EUR"): string {
-  const symbol = currency === "PEN" ? "S/" : currency === "EUR" ? "\u20ac" : "$";
+export function formatMoney(amount: number, currency: "PEN" | "EUR"): string {
+  const symbol = currency === "PEN" ? "S/" : "\u20ac";
   return `${symbol} ${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

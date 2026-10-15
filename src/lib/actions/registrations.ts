@@ -89,7 +89,7 @@ export type TicketIntentResult =
       ok: true;
       registrationId: string;
       chargeAmountPen: number;
-      displayPriceUsd: number | null;
+      displayPriceEur: number | null;
       exchangeRate: number | null;
       initPoint: string;
     }
@@ -97,7 +97,7 @@ export type TicketIntentResult =
 
 /**
  * Creates a pending `registrations` row for a paid ticket, resolves the
- * buyer's price server-side (spec §5, §8 — PEN always, USD is
+ * buyer's price server-side (spec §5, §8 — PEN always, EUR is
  * display-only, see src/lib/pricing.ts), and opens a Mercado Pago Checkout
  * Pro preference for the resolved PEN amount. Returns ONLY that buyer's
  * own resolved price plus the hosted-checkout redirect URL — never the
@@ -148,10 +148,10 @@ export async function createTicketIntent(
   }
 
   const admin = createAdminClient();
-  const quote = quoteTickets(price, quantity, event.offer_rules, Date.now(), resolvePromotionRate(event.offer_rules, currentRate, euroRate));
+  const quote = quoteTickets(price, quantity, event.offer_rules, Date.now(), resolvePromotionRate(event.offer_rules, euroRate));
   if (!quote.available) return { ok: false, error: "The promotion exchange rate is temporarily unavailable. Try again shortly." };
   const totalPen = quote.chargeAmountPen;
-  const totalUsd = quote.displayPriceUsd;
+  const totalEur = quote.displayPriceEur;
   if (parsed.data.expectedAmountPen != null && Math.round(parsed.data.expectedAmountPen * 100) !== Math.round(totalPen * 100)) {
     return { ok: false, error: "The price or offer changed. Reload the event to see the current total before buying." };
   }
@@ -186,7 +186,7 @@ export async function createTicketIntent(
       companion_first_name: parsed.data.companion?.firstName ?? null,
       companion_last_name: parsed.data.companion?.lastName ?? null,
       amount_pen: totalPen,
-      display_price_usd: totalUsd,
+      display_price_eur: totalEur,
       exchange_rate_applied: price.exchangeRate,
       payment_status: totalPen === 0 ? "paid" : "pending",
     })
@@ -203,10 +203,10 @@ export async function createTicketIntent(
   if (totalPen === 0) {
     await sendTicketReceipt({ to: profile.email, name: `${profile.first_name} ${profile.last_name}`,
       eventTitle: event.title, eventDate: event.event_date, location: event.location,
-      amountPen: 0, displayPriceUsd: totalUsd, exchangeRateApplied: price.exchangeRate,
+      amountPen: 0, displayPriceEur: totalEur, exchangeRateApplied: price.exchangeRate,
       paymentId: "No payment required", ticketQuantity: quantity, promotionReference: quote.promotionReference,
       companionName: parsed.data.companion ? `${parsed.data.companion.firstName} ${parsed.data.companion.lastName}` : null });
-    return { ok: true, registrationId, chargeAmountPen: 0, displayPriceUsd: totalUsd,
+    return { ok: true, registrationId, chargeAmountPen: 0, displayPriceEur: totalEur,
       exchangeRate: price.exchangeRate, initPoint: `/checkout/return?registration_id=${registrationId}` };
   }
 
@@ -229,7 +229,7 @@ export async function createTicketIntent(
     ok: true,
     registrationId,
     chargeAmountPen: totalPen,
-    displayPriceUsd: totalUsd,
+    displayPriceEur: totalEur,
     exchangeRate: price.exchangeRate,
     initPoint: preference.initPoint,
   };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eventFormSchema } from "./schemas";
-const event = { title: "Party", slug: "party", description: "Party", eventDate: "2026-12-01T20:00", location: "Lima", type: "paid", pricePen: 90, priceUsd: 30, category: "Events", status: "open" };
+const event = { title: "Party", slug: "party", description: "Party", eventDate: "2026-12-01T20:00", location: "Lima", type: "paid", pricePen: 90, priceEur: 30, category: "Events", status: "open" };
 describe("event terms configuration", () => {
   it("requires text or a link for paid events", () => {
     expect(eventFormSchema.safeParse(event).success).toBe(false);

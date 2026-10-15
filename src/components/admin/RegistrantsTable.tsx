@@ -24,7 +24,7 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
             <th className="px-4 py-3 font-semibold">Nationality</th>
             <th className="px-4 py-3 font-semibold">Kind</th>
             <th className="px-4 py-3 font-semibold">PEN charged</th>
-            <th className="px-4 py-3 font-semibold">USD reference</th>
+            <th className="px-4 py-3 font-semibold">EUR reference</th>
             <th className="px-4 py-3 font-semibold">Payment</th>
           </tr>
         </thead>
@@ -42,9 +42,9 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
                 {r.amount_pen != null ? formatMoney(r.amount_pen, "PEN") : "—"}
               </td>
               <td className="px-4 py-3 text-ink/65">
-                {r.display_price_usd != null ? (
+                {r.display_price_eur != null ? (
                   <>
-                    {formatMoney(r.display_price_usd, "USD")}
+                    {formatMoney(r.display_price_eur, "EUR")}
                     {r.exchange_rate_applied != null && (
                       <span className="block text-xs text-ink/40">
                         at {r.exchange_rate_applied.toFixed(3)}

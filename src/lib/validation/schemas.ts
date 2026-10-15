@@ -81,7 +81,7 @@ const offerWindow = {
 export const offerRulesSchema = z.object({
   promotion: z.discriminatedUnion("type", [
     z.object({ ...offerWindow, type: z.literal("two_for_one") }),
-    z.object({ ...offerWindow, type: z.literal("bundle_price"), quantity: z.union([z.literal(1), z.literal(2)]), amount: z.number().positive().max(999999).multipleOf(0.01), currency: z.enum(["PEN", "USD", "EUR"]) }),
+    z.object({ ...offerWindow, type: z.literal("bundle_price"), quantity: z.union([z.literal(1), z.literal(2)]), amount: z.number().positive().max(999999).multipleOf(0.01), currency: z.enum(["PEN", "EUR"]) }),
   ])
     .refine((data) => Date.parse(data.endsAt) > Date.parse(data.startsAt), "Promotion end must be after its start.").optional(),
   discount: z.object({ ...offerWindow, type: z.enum(["percentage", "fixed"]), value: z.number().positive().max(999999) })
@@ -105,7 +105,7 @@ export const eventFormSchema = z
     type: z.enum(["free", "paid"]),
     category: z.enum(COMMITTEE_KEYS as [string, ...string[]]),
     pricePen: z.coerce.number().positive().optional(),
-    priceUsd: z.coerce.number().positive().optional(),
+    priceEur: z.coerce.number().positive().optional(),
     capacity: z.coerce.number().int().positive().optional(),
     status: z.enum(["open", "closed"]),
     allowCompanion: z.boolean().default(false),
@@ -129,9 +129,9 @@ export const eventFormSchema = z
   .refine(
     (data) =>
       data.type === "free" ||
-      (data.pricePen !== undefined && data.priceUsd !== undefined),
+      (data.pricePen !== undefined && data.priceEur !== undefined),
     {
-      message: "Paid events require both a PEN and a USD price",
+      message: "Paid events require both a PEN and a EUR price",
       path: ["pricePen"],
     }
   );

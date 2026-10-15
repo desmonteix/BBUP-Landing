@@ -39,8 +39,8 @@ export function EventCard({
           ) : event.resolved_price ? (
             <Badge tone="blue">
               From{" "}
-              {event.resolved_price.displayPriceUsd != null
-                ? formatMoney(event.resolved_price.displayPriceUsd, "USD")
+              {event.resolved_price.displayPriceEur != null
+                ? formatMoney(event.resolved_price.displayPriceEur, "EUR")
                 : formatMoney(event.resolved_price.chargeAmountPen, "PEN")}
             </Badge>
           ) : (
