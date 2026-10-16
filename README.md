@@ -342,6 +342,12 @@ Automatic rates retain the existing S/ 0.10 margin; manual rates are final.
 
 Apply `supabase/migrations/0008_nationality_validation.sql` after 0007.
 Peruvian nationality claims require exactly eight ASCII digits beginning with 7.
+Validation uses the raw input: letters, punctuation, spaces and line breaks are
+rejected, including leading/trailing spaces. Invalid form submissions go through
+an audit-only server action; they never invoke the account-creation action.
+The form marks DNI and nationality in red, focuses the DNI, explicitly asks the
+person to correct either field, and keeps their entered values. Correcting the
+DNI or choosing the appropriate nationality clears the warning.
 This is the requested business format rule, not proof of identity or citizenship.
 Foreign passport validation remains unchanged.
 

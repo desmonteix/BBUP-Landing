@@ -2,6 +2,10 @@ import { expect, it } from "vitest";
 import { assertNationalityDni } from "./nationality";
 import { signupSchema } from "./validation/schemas";
 const input = { firstName: "Ana", lastName: "Perez", nationality: "Peruvian", dniId: "71234567", email: "ana@example.com", password: "long-password" };
+it.each(["8123456789", "7123456a", " 71234567", "71234567 ", "71234567\n", "7123-567"])("rejects every non-digit or incorrect length in Peruvian signup: %j", (dniId) => {
+  expect(() => assertNationalityDni("Peruvian", dniId)).toThrow(TypeError);
+  expect(signupSchema.safeParse({ ...input, dniId }).success).toBe(false);
+});
 it.each(["7123456", "712345678", "61234567", "7abcdefg", "7 234567", "7.234567", "７１２３４５６７", "", null])("rejects invalid Peruvian DNI %s with TypeError", (dni) => {
   expect(() => assertNationalityDni("Peruvian", dni)).toThrow(TypeError);
   expect(() => assertNationalityDni("Peruvian", dni)).toThrow("DNI inválido");

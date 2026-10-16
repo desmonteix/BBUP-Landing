@@ -6,7 +6,7 @@ vi.mock("@/lib/resend", () => ({ sendPasswordReset: vi.fn() }));
 vi.mock("@/lib/mercadopago", () => ({ getSiteUrl: () => "http://localhost:3000" }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth: { signUp: mocks.signup, getUser: mocks.getUser }, from: () => ({ update: mocks.update }) }) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (table: string) => ({ insert: (row: unknown) => mocks.insert(table, row) }) }) }));
-import { signUp, updateProfile } from "./auth";
+import { signUp, updateProfile, reportInvalidSignup } from "./auth";
 function form(dni = "61234567", nationality = "Peruvian") {
   const data = new FormData();
   for (const [key, value] of Object.entries({ firstName: "Ana", lastName: "Perez", dniId: dni, nationality, email: "ana@example.com", password: "long-password" })) data.set(key, value);
@@ -24,6 +24,22 @@ it("rejects and logs a forged Peruvian signup before creating an auth account", 
   expect(await signUp({ status: "idle" }, form())).toMatchObject({ status: "error", errorType: "TypeError" });
   expect(mocks.signup).not.toHaveBeenCalled();
   expect(mocks.insert).toHaveBeenCalledWith("nationality_failures", expect.objectContaining({ full_name: "Ana Perez", message: "Nacionalidad fallida" }));
+});
+it.each(["8123456789", "7123456a", "7123-567", " 71234567", "71234567 "])("never creates Auth or profile rows for invalid Peruvian DNI %j", async (dni) => {
+  expect(await signUp({ status: "idle" }, form(dni))).toMatchObject({ status: "error", errorType: "TypeError" });
+  expect(mocks.signup).not.toHaveBeenCalled();
+  expect(mocks.insert).not.toHaveBeenCalledWith("profiles", expect.anything());
+  expect(mocks.insert).toHaveBeenCalledWith("nationality_failures", expect.objectContaining({ message: "Nacionalidad fallida" }));
+});
+it("the client rejection action can only log and cannot create an account", async () => {
+  expect(await reportInvalidSignup(form("8123456789"))).toMatchObject({ status: "error", errorType: "TypeError" });
+  expect(mocks.signup).not.toHaveBeenCalled();
+  expect(mocks.insert).toHaveBeenCalledWith("nationality_failures", expect.objectContaining({ full_name: "Ana Perez", message: "Nacionalidad fallida" }));
+});
+it("even a forged valid submission to the rejection action cannot create an account", async () => {
+  expect(await reportInvalidSignup(form("71234567"))).toMatchObject({ status: "error" });
+  expect(mocks.signup).not.toHaveBeenCalled();
+  expect(mocks.insert).not.toHaveBeenCalled();
 });
 it.each([["71234567", "Peruvian"], ["AB12345", "German"]])("allows valid signup %s %s", async (dni, nationality) => {
   expect(await signUp({ status: "idle" }, form(dni, nationality))).toMatchObject({ status: "success" });

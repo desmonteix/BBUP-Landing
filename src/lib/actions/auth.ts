@@ -21,6 +21,14 @@ export type AuthState = {
   errorType?: "TypeError";
 };
 
+/** Invalid client-side submissions can audit their failure without invoking signup. */
+export async function reportInvalidSignup(formData: FormData): Promise<AuthState> {
+  return await verifyNationalityClaim({
+    firstName: formData.get("firstName"), lastName: formData.get("lastName"),
+    nationality: formData.get("nationality"), dniId: formData.get("dniId"), context: "signup",
+  }) ?? { status: "error", message: "Check the registration form and try again." };
+}
+
 /**
  * Attendee signup (spec 5, 8). Email + password via Supabase Auth — DNI/ID
  * is written straight to `profiles` as plain data, never touched by the
@@ -67,7 +75,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     id: data.user.id,
     first_name: parsed.data.firstName,
     last_name: parsed.data.lastName,
-    dni_id: parsed.data.dniId,
+    dni_id: parsed.data.dniId.trim(),
     nationality: parsed.data.nationality,
     email: parsed.data.email,
   });
@@ -347,7 +355,7 @@ export async function updateProfile(_prev: AuthState, formData: FormData): Promi
       first_name: parsed.data.firstName,
       last_name: parsed.data.lastName,
       nationality: parsed.data.nationality,
-      dni_id: parsed.data.dniId,
+      dni_id: parsed.data.dniId.trim(),
     })
     .eq("id", user.id);
 

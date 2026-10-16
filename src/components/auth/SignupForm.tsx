@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
-import { signUp, type AuthState } from "@/lib/actions/auth";
+import { signUp, reportInvalidSignup, type AuthState } from "@/lib/actions/auth";
+import { isValidPeruvianDni } from "@/lib/nationality";
 import { NATIONALITIES } from "@/lib/types";
 import { TextField } from "@/components/auth/FormField";
 import { CheckCircle2 } from "lucide-react";
@@ -10,7 +11,15 @@ import { CheckCircle2 } from "lucide-react";
 const initialState: AuthState = { status: "idle" };
 
 export function SignupForm() {
-  const [state, formAction, pending] = useActionState(signUp, initialState);
+  const [dniError, setDniError] = useState<string | null>(null);
+  const [reporting, startReport] = useTransition();
+  const [state, formAction, pending] = useActionState(async (previous: AuthState, data: FormData): Promise<AuthState> => {
+    if (data.get("nationality") === "Peruvian" && !isValidPeruvianDni(data.get("dniId"))) {
+      // This action only audits: an invalid DNI never reaches the account-creation action.
+      return reportInvalidSignup(data);
+    }
+    return signUp(previous, data);
+  }, initialState);
 
   if (state.status === "success") {
     return (
@@ -25,16 +34,44 @@ export function SignupForm() {
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4" onSubmit={(event) => {
+      const data = new FormData(event.currentTarget);
+      if (data.get("nationality") !== "Peruvian" || isValidPeruvianDni(data.get("dniId"))) {
+        setDniError(null);
+        return;
+      }
+      event.preventDefault();
+      setDniError("TypeError: DNI inválido. Para nacionalidad peruana, escribe exactamente 8 dígitos, empezando por 7, sin letras, signos ni espacios. Corrige tu DNI o selecciona tu nacionalidad correcta.");
+      (event.currentTarget.elements.namedItem("dniId") as HTMLInputElement | null)?.focus();
+      // Report separately so the rejected form keeps all values for correction.
+      startReport(async () => {
+        try { await reportInvalidSignup(data); }
+        catch { console.warn("[signup] could not submit nationality failure report"); }
+      });
+    }} onChange={(event) => {
+      if (!dniError) return;
+      const input: EventTarget = event.target;
+      if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLSelectElement)) return;
+      if (input.name !== "dniId" && input.name !== "nationality") return;
+      const data = new FormData(event.currentTarget);
+      if (data.get("nationality") !== "Peruvian" || isValidPeruvianDni(data.get("dniId"))) setDniError(null);
+    }}>
       <div className="grid grid-cols-2 gap-4">
         <TextField label="First name" name="firstName" autoComplete="given-name" required />
         <TextField label="Last name" name="lastName" autoComplete="family-name" required />
       </div>
+      {dniError && <div id="nationality-error" role="alert" className="rounded-md border-2 border-error bg-error/10 p-4 text-sm text-error">
+        <p className="font-semibold">Revisa tu DNI y nacionalidad</p>
+        <p className="mt-1">{dniError}</p>
+        <p className="mt-2 font-semibold">Tu cuenta no se ha creado.</p>
+      </div>}
       <TextField
         label="DNI / passport number"
         name="dniId"
         autoComplete="off"
         required
+        invalid={Boolean(dniError)}
+        describedBy={dniError ? "nationality-error" : undefined}
         hint="Para nacionalidad peruana: exactamente 8 dígitos y debe empezar por 7."
       />
       <div>
@@ -46,7 +83,9 @@ export function SignupForm() {
           name="nationality"
           required
           defaultValue=""
-          className="w-full cursor-pointer rounded-sm border border-border bg-white px-4 py-2.5 text-sm text-ink outline-none transition-colors duration-200 focus-visible:border-pink focus-visible:shadow-glow"
+          aria-invalid={Boolean(dniError) || undefined}
+          aria-describedby={dniError ? "nationality-error" : undefined}
+          className={`w-full cursor-pointer rounded-sm border ${dniError ? "border-error" : "border-border"} bg-white px-4 py-2.5 text-sm text-ink outline-none transition-colors duration-200 focus-visible:border-pink focus-visible:shadow-glow`}
         >
           <option value="" disabled>
             Select your nationality
@@ -80,7 +119,7 @@ export function SignupForm() {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || reporting}
         className="w-full cursor-pointer rounded-full bg-gradient-buddy px-6 py-3 font-display font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-60"
       >
         {pending ? "Creating your account…" : "Create account"}

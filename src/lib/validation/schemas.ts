@@ -3,6 +3,11 @@ import { NATIONALITIES } from "@/lib/types";
 import { COMMITTEE_KEYS } from "@/lib/committees";
 import { isValidPeruvianDni } from "@/lib/nationality";
 
+// Keep the raw value until nationality validation; trimming would accept non-digits.
+const documentIdSchema = z.string().max(30).refine(
+  (value) => value.trim().length >= 4, "Enter a valid ID/passport number"
+);
+
 /**
  * Server-side validation schemas. Every Server Action / Route Handler that
  * accepts user input parses it through one of these — client-side
@@ -12,11 +17,7 @@ import { isValidPeruvianDni } from "@/lib/nationality";
 export const signupSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required").max(100),
   lastName: z.string().trim().min(1, "Last name is required").max(100),
-  dniId: z
-    .string()
-    .trim()
-    .min(4, "Enter a valid ID/passport number")
-    .max(30),
+  dniId: documentIdSchema,
   nationality: z.enum(NATIONALITIES as [string, ...string[]]),
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
   password: z
@@ -48,7 +49,7 @@ export const profileUpdateSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
   nationality: z.enum(NATIONALITIES as [string, ...string[]]),
-  dniId: z.string().trim().min(4, "Enter a valid ID/passport number").max(30),
+  dniId: documentIdSchema,
 }).refine((data) => data.nationality !== "Peruvian" || isValidPeruvianDni(data.dniId), {
   path: ["dniId"], message: "DNI inválido. Debe tener exactamente 8 dígitos y empezar por 7.",
 });

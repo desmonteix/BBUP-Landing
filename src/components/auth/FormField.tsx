@@ -6,6 +6,8 @@ export function TextField({
   required,
   hint,
   defaultValue,
+  invalid = false,
+  describedBy,
 }: {
   label: string;
   name: string;
@@ -14,6 +16,8 @@ export function TextField({
   required?: boolean;
   hint?: string;
   defaultValue?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   return (
     <div>
@@ -27,7 +31,9 @@ export function TextField({
         autoComplete={autoComplete}
         required={required}
         defaultValue={defaultValue}
-        className="w-full rounded-sm border border-border bg-white px-4 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink/35 focus-visible:border-pink focus-visible:shadow-glow"
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
+        className={`w-full rounded-sm border ${invalid ? "border-error" : "border-border"} bg-white px-4 py-2.5 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-ink/35 focus-visible:border-pink focus-visible:shadow-glow`}
       />
       {/* text-ink/70, not /45: the hint is where a password rule is stated
           before anyone submits, and /45 measures 2.83:1 against the card. */}

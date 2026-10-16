@@ -1,6 +1,6 @@
 /** Business format rule only; this is not an identity or citizenship lookup. */
 export function isValidPeruvianDni(dni: unknown): boolean {
-  return typeof dni === "string" && /^7[0-9]{7}$/.test(dni.trim());
+  return typeof dni === "string" && dni.length === 8 && /^7[0-9]{7}$/.test(dni);
 }
 
 export function assertNationalityDni(nationality: unknown, dni: unknown): void {
