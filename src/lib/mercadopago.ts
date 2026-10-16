@@ -99,6 +99,7 @@ export interface PaymentSearchHit {
   external_reference?: string;
   date_created?: string;
   transaction_amount?: number;
+  currency_id?: string;
 }
 
 /**
@@ -134,6 +135,7 @@ export function selectPaymentForRegistration(
     status: chosen.status,
     externalReference: chosen.external_reference,
     transactionAmount: chosen.transaction_amount,
+    ...(chosen.currency_id ? { currencyId: chosen.currency_id } : {}),
   };
 }
 
@@ -151,9 +153,11 @@ export function selectPaymentForRegistration(
  * `PaymentSearchOptions` declares `external_reference`, `sort` and
  * `criteria` as explicit typed fields.
  */
-export async function findPaymentByRegistration(
+export type PaymentLookupResult = { ok: true; payment: MercadoPagoPaymentInfo | null } | { ok: false; error: string };
+
+export async function lookupPaymentByRegistration(
   registrationId: string
-): Promise<MercadoPagoPaymentInfo | null> {
+): Promise<PaymentLookupResult> {
   try {
     const client = getClient();
     const payment = new Payment(client);
@@ -166,13 +170,21 @@ export async function findPaymentByRegistration(
       },
     });
 
-    return selectPaymentForRegistration(response.results ?? [], registrationId);
+    return { ok: true, payment: selectPaymentForRegistration(response.results ?? [], registrationId) };
   } catch (err) {
     // The recovery path going quiet is itself worth seeing in the logs: this
     // is the only thing that settles a payment when the webhook does not.
-    console.error("[mercadopago] findPaymentByRegistration failed", err);
-    return null;
+    const status = typeof err === "object" && err !== null && "status" in err ? err.status : undefined;
+    console.error("[mercadopago] payment lookup failed", { status });
+    return { ok: false, error: status === 401 || status === 403
+      ? "Credenciales de Mercado Pago no válidas. No se pudieron verificar los pagos."
+      : "No se pudo consultar Mercado Pago. Vuelve a intentarlo; el estado no se ha cambiado." };
   }
+}
+
+export async function findPaymentByRegistration(registrationId: string): Promise<MercadoPagoPaymentInfo | null> {
+  const result = await lookupPaymentByRegistration(registrationId);
+  return result.ok ? result.payment : null;
 }
 
 export interface MercadoPagoPaymentInfo {
@@ -180,6 +192,7 @@ export interface MercadoPagoPaymentInfo {
   status: string | undefined;
   externalReference: string | undefined;
   transactionAmount: number | undefined;
+  currencyId?: string;
 }
 
 export async function getMercadoPagoPayment(
@@ -197,6 +210,7 @@ export async function getMercadoPagoPayment(
       status: response.status,
       externalReference: response.external_reference,
       transactionAmount: response.transaction_amount,
+      currencyId: response.currency_id,
     };
   } catch (err) {
     console.error("[mercadopago] getMercadoPagoPayment failed", err);

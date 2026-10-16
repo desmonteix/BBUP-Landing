@@ -64,7 +64,12 @@ export async function POST(request: NextRequest) {
   }
 
   const payment = await getMercadoPagoPayment(dataId);
-  if (!payment || !payment.externalReference) {
+  if (!payment) {
+    // An API outage or invalid token is not evidence that the buyer did not pay.
+    // Do not acknowledge and permanently lose this notification.
+    return NextResponse.json({ error: "Payment lookup unavailable. Retry later." }, { status: 503 });
+  }
+  if (!payment.externalReference) {
     return NextResponse.json({ ok: true, paymentNotFound: true });
   }
 

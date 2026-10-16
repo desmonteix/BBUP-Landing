@@ -1,8 +1,9 @@
 import { Badge } from "@/components/ui/Badge";
 import { formatMoney } from "@/lib/money";
 import type { AdminRegistrantRow } from "@/lib/types";
+import type { PaymentCheck } from "@/lib/paymentReconciliation";
 
-export function RegistrantsTable({ registrants }: { registrants: AdminRegistrantRow[] }) {
+export function RegistrantsTable({ registrants, checks = {} }: { registrants: AdminRegistrantRow[]; checks?: Record<string, PaymentCheck> }) {
   if (registrants.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border bg-paper-sunk p-8 text-center text-sm text-ink/55">
@@ -23,9 +24,9 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
             <th className="px-4 py-3 font-semibold">Phone</th>
             <th className="px-4 py-3 font-semibold">Nationality</th>
             <th className="px-4 py-3 font-semibold">Kind</th>
-            <th className="px-4 py-3 font-semibold">PEN charged</th>
+            <th className="px-4 py-3 font-semibold">Importe (S/)</th>
             <th className="px-4 py-3 font-semibold">EUR reference</th>
-            <th className="px-4 py-3 font-semibold">Payment</th>
+            <th className="px-4 py-3 font-semibold">Estado de pago</th>
           </tr>
         </thead>
         <tbody>
@@ -60,6 +61,7 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
                   tone={
                     r.payment_status === "paid"
                       ? "success"
+                      : checks[r.id] === "error" ? "error"
                       : r.payment_status === "failed"
                         ? "error"
                         : r.payment_status === "pending"
@@ -67,8 +69,13 @@ export function RegistrantsTable({ registrants }: { registrants: AdminRegistrant
                           : "neutral"
                   }
                 >
-                  {r.payment_status}
+                  {r.payment_status === "paid" ? "Pagado"
+                    : checks[r.id] === "error" ? "No se pudo verificar"
+                    : r.payment_status === "failed" ? "Rechazado / cancelado"
+                    : r.payment_status === "n/a" ? "No requiere pago"
+                    : checks[r.id] === "not-found" ? "Sin pago registrado" : "Pendiente de confirmación"}
                 </Badge>
+                {r.mercadopago_payment_id && <span className="mt-1 block text-xs text-ink/60">MP: {r.mercadopago_payment_id}</span>}
               </td>
             </tr>
           ))}

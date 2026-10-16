@@ -4,11 +4,12 @@ import { ArrowLeft } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateEvent } from "@/lib/actions/admin";
 import { EventForm } from "@/components/admin/EventForm";
-import { RegistrantsTable } from "@/components/admin/RegistrantsTable";
+import { RegistrantsPanel } from "@/components/admin/RegistrantsPanel";
 import type { AdminRegistrantRow, EventRow } from "@/lib/types";
 
 export const metadata = { title: "Admin — Edit event" };
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function EditEventPage({
   params,
@@ -53,7 +54,7 @@ export default async function EditEventPage({
           Registrants ({registrants?.length ?? 0})
         </h2>
         <div className="mt-4">
-          <RegistrantsTable registrants={(registrants as AdminRegistrantRow[] | null) ?? []} />
+          <RegistrantsPanel eventId={id} registrants={(registrants as AdminRegistrantRow[] | null) ?? []} />
         </div>
       </div>
     </div>

@@ -338,6 +338,23 @@ set a verified EUR/PEN manual rate in `/admin`. Until an EUR rate is available,
 regular non-Peruvian checkout remains unavailable. No guessed rate is seeded.
 Automatic rates retain the existing S/ 0.10 margin; manual rates are final.
 
+## Reviewing payment status
+
+The event admin panel shows paid, unconfirmed and rejected/cancelled purchases,
+confirmed ticket counts, filters, and the Mercado Pago payment ID when recorded.
+Use **Actualizar pagos** to reconcile missing notifications directly with Mercado
+Pago. Each batch examines up to 20 purchases; **Revisar siguientes compras**
+continues a stable cursor which includes already-settled rows to avoid skipping
+buyers as their states change. Every action independently requires admin access.
+
+A missing payment is shown as **Sin pago registrado** for that check. Provider
+errors are shown as **No se pudo verificar**, without treating them as proof of
+non-payment. A 401/403 requires checking `MERCADOPAGO_ACCESS_TOKEN` in the deployed
+environment. Approved payments must match the stored PEN amount before settlement;
+the existing atomic claim prevents duplicate receipts or downgrading paid orders.
+API lookup failures in the webhook now return 503 so Mercado Pago can retry.
+Payment callbacks and return URLs must point to the deployed HTTPS site, not localhost.
+
 ## Peruvian DNI format rule and failure audit
 
 Apply `supabase/migrations/0008_nationality_validation.sql` after 0007.

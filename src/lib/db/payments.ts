@@ -12,7 +12,8 @@ export type ApplyPaymentOutcome =
   | "failed"
   /** Mercado Pago has not decided yet; a later notification or visit will. */
   | "still-pending"
-  | "registration-not-found";
+  | "registration-not-found"
+  | "payment-mismatch";
 
 /**
  * Writes a Mercado Pago payment's outcome onto its registration.
@@ -37,7 +38,7 @@ export async function applyPaymentToRegistration(
 
   const admin = createAdminClient();
 
-  const { data: registration } = await admin
+  const { data: registration, error: readError } = await admin
     .from("registrations")
     .select(
       "id, email, name, event_id, amount_pen, display_price_eur, exchange_rate_applied, payment_status, mercadopago_payment_id, ticket_quantity, companion_first_name, companion_last_name, pricing_snapshot"
@@ -45,9 +46,16 @@ export async function applyPaymentToRegistration(
     .eq("id", payment.externalReference)
     .maybeSingle();
 
+  if (readError) throw new Error("Could not read registration for payment verification.");
   if (!registration) return "registration-not-found";
 
   if (payment.status === "approved") {
+    if (registration.amount_pen == null || !Number.isFinite(payment.transactionAmount)
+      || Math.round(payment.transactionAmount! * 100) !== Math.round(registration.amount_pen * 100)
+      || payment.currencyId !== "PEN") {
+      console.error("[payments] approved payment amount/currency mismatch", { registrationId: registration.id, paymentId: payment.id });
+      return "payment-mismatch";
+    }
     const { data: claimed, error: updateError } = await admin
       .from("registrations")
       .update({ payment_status: "paid", mercadopago_payment_id: payment.id })
