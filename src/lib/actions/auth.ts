@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -14,11 +15,13 @@ import {
 import { sendPasswordReset } from "@/lib/resend";
 import { getSiteUrl } from "@/lib/mercadopago";
 import { verifyNationalityClaim } from "@/lib/nationalityVerification";
+import { requiresNationalityApproval } from "@/lib/nationality";
 
 export type AuthState = {
   status: "idle" | "error" | "success";
   message?: string;
   errorType?: "TypeError";
+  requiresApproval?: boolean;
 };
 
 /** Invalid client-side submissions can audit their failure without invoking signup. */
@@ -57,6 +60,11 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
 
+  const admin = createAdminClient();
+  if (requiresNationalityApproval(parsed.data.nationality, parsed.data.dniId)) {
+    const { error: reviewUnavailable } = await admin.from("profiles").select("nationality_approval").limit(0);
+    if (reviewUnavailable) return { status: "error", message: "La revisión administrativa aún no está habilitada. Contacta con la organización." };
+  }
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
@@ -70,7 +78,6 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     return { status: "error", message: "Could not create your account. Try again." };
   }
 
-  const admin = createAdminClient();
   const { error: profileError } = await admin.from("profiles").insert({
     id: data.user.id,
     first_name: parsed.data.firstName,
@@ -83,6 +90,12 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   if (profileError) {
     console.error("[auth] profile insert failed", profileError);
     return { status: "error", message: "Your account was created but we couldn't save your profile. Contact us." };
+  }
+
+  if (requiresNationalityApproval(parsed.data.nationality, parsed.data.dniId)) {
+    revalidatePath("/admin/approvals");
+    return { status: "success", requiresApproval: true,
+      message: `Tu solicitud está pendiente de aprobación del administrador. No podrás comprar entradas hasta que se apruebe.${!data.session ? " Confirma también tu correo electrónico." : ""}` };
   }
 
   if (!data.session) {
@@ -349,7 +362,7 @@ export async function updateProfile(_prev: AuthState, formData: FormData): Promi
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
 
-  const { error } = await supabase
+  const { data: updatedProfile, error } = await supabase
     .from("profiles")
     .update({
       first_name: parsed.data.firstName,
@@ -357,12 +370,20 @@ export async function updateProfile(_prev: AuthState, formData: FormData): Promi
       nationality: parsed.data.nationality,
       dni_id: parsed.data.dniId.trim(),
     })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("nationality_approval")
+    .single();
 
   if (error) {
     console.error("[auth] profile update failed", error);
     return { status: "error", message: "Could not save your changes. Try again." };
   }
 
-  return { status: "success", message: "Profile updated." };
+  revalidatePath("/account");
+  revalidatePath("/events");
+  revalidatePath("/admin/approvals");
+  return { status: "success", message: updatedProfile?.nationality_approval === "pending"
+    ? "Perfil actualizado. Tu cuenta queda pendiente de aprobación del administrador."
+    : updatedProfile?.nationality_approval === "rejected" ? "Perfil actualizado. El administrador no ha aprobado esta cuenta."
+    : "Profile updated." };
 }

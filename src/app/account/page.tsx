@@ -7,6 +7,7 @@ import { logout } from "@/lib/actions/auth";
 import { formatMoney } from "@/lib/money";
 import { formatEventDate } from "@/lib/utils";
 import { ProfileForm } from "@/components/auth/ProfileForm";
+import { AccountApprovalNotice } from "@/components/auth/AccountApprovalNotice";
 import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 
@@ -48,6 +49,7 @@ export default async function AccountPage() {
           </form>
         </div>
 
+        <AccountApprovalNotice profile={profile} />
         <div className="mt-10 rounded-lg border border-border bg-white p-7 shadow-sm">
           <h2 className="font-display text-lg font-semibold text-ink">Profile</h2>
           <p className="mt-1 text-sm text-ink/55">{profile.email}</p>

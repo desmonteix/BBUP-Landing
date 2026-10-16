@@ -32,8 +32,18 @@ beforeEach(() => {
   mocks.preference.mockResolvedValue({ ok: true, initPoint: "https://example.com/pay" });
 });
 describe("ticket purchases", () => {
+  it.each(["pending", "rejected"])("does not sell tickets before account approval: %s", async nationality_approval => {
+    mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Ana", last_name: "Perez", nationality: "Peruvian", dni_id: "81234567", nationality_approval });
+    expect(await buy(eventId)).toMatchObject({ ok: false });
+    expect(mocks.preference).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it("allows the staff tariff after a manual administrator approval", async () => {
+    mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Ana", last_name: "Perez", nationality: "Peruvian", dni_id: "81234567", nationality_approval: "approved" });
+    expect(await buy(eventId)).toMatchObject({ ok: true, chargeAmountPen: 90 });
+  });
   it("blocks an existing Peruvian profile with an invalid DNI before pricing or payment", async () => {
-    mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Ana", last_name: "Perez", nationality: "Peruvian", dni_id: "61234567" });
+    mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Ana", last_name: "Perez", nationality: "Peruvian", dni_id: "6123456789" });
     expect(await buy(eventId)).toMatchObject({ ok: false, error: expect.stringContaining("TypeError: DNI inválido") });
     expect(mocks.preference).not.toHaveBeenCalled();
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ full_name: "Ana Perez", message: "Nacionalidad fallida", context: "checkout" }));

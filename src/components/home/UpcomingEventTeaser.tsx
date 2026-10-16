@@ -3,6 +3,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { listEvents } from "@/lib/db/events";
 import { getCurrentProfile } from "@/lib/auth";
+import { getAccountApproval, accountApprovalMessage } from "@/lib/nationality";
 import { formatEventDate } from "@/lib/utils";
 import { formatMoney } from "@/lib/pricing";
 import { LinkButton } from "@/components/ui/Button";
@@ -14,7 +15,7 @@ import { Container } from "@/components/ui/Container";
 export async function UpcomingEventTeaser() {
   const supabase = await createClient();
   const profile = await getCurrentProfile();
-  const upcoming = await listEvents(supabase, { when: "upcoming", viewerNationality: profile?.nationality ?? null, viewerProfileId: profile?.id });
+  const upcoming = await listEvents(supabase, { when: "upcoming", viewerNationality: profile && getAccountApproval(profile) === "approved" ? profile.nationality : null, viewerProfileId: profile?.id, purchaseBlockedReason: profile ? accountApprovalMessage(profile) : null });
   const next = upcoming[0];
 
   if (!next) return null;

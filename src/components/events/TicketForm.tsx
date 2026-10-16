@@ -25,6 +25,7 @@ export function TicketForm({
   termsVersion,
   offerRules = {},
   promotionExchangeRate = null,
+  purchaseBlockedReason,
 }: {
   eventId: string;
   isLoggedIn: boolean;
@@ -36,6 +37,7 @@ export function TicketForm({
   termsVersion: string;
   offerRules?: OfferRules;
   promotionExchangeRate?: PromotionExchangeRate | null;
+  purchaseBlockedReason?: string | null;
 }) {
   const [intent, setIntent] = useState<Intent>({ state: "idle" });
   const [pending, startTransition] = useTransition();
@@ -78,6 +80,9 @@ export function TicketForm({
     );
   }
 
+  if (purchaseBlockedReason) return <div role="status" className="rounded-md border border-pink/40 bg-paper-sunk p-5 text-sm">
+    <p>{purchaseBlockedReason}</p><Link href="/account" className="mt-3 inline-block font-semibold text-pink underline">Revisar mi cuenta</Link>
+  </div>;
   const busy = pending || intent.state === "creating" || intent.state === "redirecting";
 
   return (

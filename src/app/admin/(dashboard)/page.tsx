@@ -48,6 +48,7 @@ export default async function AdminDashboardPage() {
         }
       />
 
+      <Link href="/admin/approvals" className="mt-6 inline-flex rounded-md border border-border bg-white px-5 py-3 text-sm font-semibold text-pink hover:underline">Revisar cuentas pendientes de aprobación</Link>
       <div className="mt-10 flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-ink">Events</h1>
         <Link

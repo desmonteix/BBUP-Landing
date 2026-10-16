@@ -1,13 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ signup: vi.fn(), getUser: vi.fn(), insert: vi.fn(), update: vi.fn(), eq: vi.fn() }));
+const mocks = vi.hoisted(() => ({ signup: vi.fn(), getUser: vi.fn(), insert: vi.fn(), update: vi.fn(), eq: vi.fn(), ready: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/resend", () => ({ sendPasswordReset: vi.fn() }));
 vi.mock("@/lib/mercadopago", () => ({ getSiteUrl: () => "http://localhost:3000" }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth: { signUp: mocks.signup, getUser: mocks.getUser }, from: () => ({ update: mocks.update }) }) }));
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (table: string) => ({ insert: (row: unknown) => mocks.insert(table, row) }) }) }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (table: string) => ({ insert: (row: unknown) => mocks.insert(table, row), select: () => ({ limit: mocks.ready }) }) }) }));
 import { signUp, updateProfile, reportInvalidSignup } from "./auth";
-function form(dni = "61234567", nationality = "Peruvian") {
+function form(dni = "6123456789", nationality = "Peruvian") {
   const data = new FormData();
   for (const [key, value] of Object.entries({ firstName: "Ana", lastName: "Perez", dniId: dni, nationality, email: "ana@example.com", password: "long-password" })) data.set(key, value);
   return data;
@@ -16,14 +17,34 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getUser.mockResolvedValue({ data: { user: { id: "buyer" } } });
   mocks.insert.mockResolvedValue({ error: null });
+  mocks.ready.mockResolvedValue({ error: null });
   mocks.signup.mockResolvedValue({ data: { user: { id: "buyer" }, session: null }, error: null });
   mocks.update.mockReturnValue({ eq: mocks.eq });
-  mocks.eq.mockResolvedValue({ error: null });
+  mocks.eq.mockReturnValue({ select: () => ({ single: async () => ({ data: { nationality_approval: "approved" }, error: null }) }) });
 });
 it("rejects and logs a forged Peruvian signup before creating an auth account", async () => {
   expect(await signUp({ status: "idle" }, form())).toMatchObject({ status: "error", errorType: "TypeError" });
   expect(mocks.signup).not.toHaveBeenCalled();
   expect(mocks.insert).toHaveBeenCalledWith("nationality_failures", expect.objectContaining({ full_name: "Ana Perez", message: "Nacionalidad fallida" }));
+});
+it("creates a manual-review request for eight digits not beginning with seven", async () => {
+  expect(await signUp({ status: "idle" }, form("81234567"))).toMatchObject({ status: "success", requiresApproval: true, message: expect.stringContaining("pendiente de aprobación") });
+  expect(mocks.signup).toHaveBeenCalledOnce();
+  expect(mocks.insert).toHaveBeenCalledWith("profiles", expect.objectContaining({ dni_id: "81234567", nationality: "Peruvian" }));
+  expect(mocks.insert).not.toHaveBeenCalledWith("nationality_failures", expect.anything());
+});
+it("does not create an orphan Auth account when the review migration is missing", async () => {
+  mocks.ready.mockResolvedValue({ error: { code: "42703" } });
+  expect(await signUp({ status: "idle" }, form("81234567"))).toMatchObject({ status: "error" });
+  expect(mocks.signup).not.toHaveBeenCalled();
+});
+it("does not treat a signed-in pending signup as a fully active account", async () => {
+  mocks.signup.mockResolvedValue({ data: { user: { id: "buyer" }, session: { access_token: "fixture" } }, error: null });
+  expect(await signUp({ status: "idle" }, form("61234567"))).toMatchObject({ requiresApproval: true });
+});
+it("reports that a profile edit has reset its approval", async () => {
+  mocks.eq.mockReturnValue({ select: () => ({ single: async () => ({ data: { nationality_approval: "pending" }, error: null }) }) });
+  expect(await updateProfile({ status: "idle" }, form("61234567"))).toMatchObject({ status: "success", message: expect.stringContaining("pendiente de aprobación") });
 });
 it.each(["8123456789", "7123456a", "7123-567", " 71234567", "71234567 "])("never creates Auth or profile rows for invalid Peruvian DNI %j", async (dni) => {
   expect(await signUp({ status: "idle" }, form(dni))).toMatchObject({ status: "error", errorType: "TypeError" });

@@ -22,7 +22,7 @@ const PUBLIC_COLUMNS =
  */
 export async function listEvents(
   supabase: SupabaseClient<any, any, any>,
-  opts: { when: "upcoming" | "past"; viewerNationality: Nationality | null; viewerProfileId?: string }
+  opts: { when: "upcoming" | "past"; viewerNationality: Nationality | null; viewerProfileId?: string; purchaseBlockedReason?: string | null }
 ): Promise<PublicEvent[]> {
   const nowIso = new Date().toISOString();
   let query = supabase.from("events").select(PUBLIC_COLUMNS);
@@ -51,7 +51,7 @@ export async function listEvents(
     needsEuroRate ? getEuroPromotionRate() : null,
     opts.viewerProfileId ? getEventsWithTickets(opts.viewerProfileId, rows.filter((row) => row.type === "paid").map((row) => row.id)) : new Set<string>(),
   ]);
-  return withCounts.map((row) => toPublicEvent(row, priorEvents == null ? null : opts.viewerNationality, currentRate, euroRate, priorEvents?.has(row.id) ?? false));
+  return withCounts.map((row) => ({ ...toPublicEvent(row, priorEvents == null ? null : opts.viewerNationality, currentRate, euroRate, priorEvents?.has(row.id) ?? false), purchase_blocked_reason: opts.purchaseBlockedReason ?? null }));
 }
 
 export async function getEventRowBySlug(

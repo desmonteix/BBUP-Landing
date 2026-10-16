@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ from: vi.fn(), insert: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: mocks.from }) }));
 import { verifyNationalityClaim } from "./nationalityVerification";
-const claim = { firstName: " Ana ", lastName: " Perez ", nationality: "Peruvian", dniId: "61234567", context: "signup" as const };
+const claim = { firstName: " Ana ", lastName: " Perez ", nationality: "Peruvian", dniId: "6123456789", context: "signup" as const };
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.from.mockReturnValue({ insert: mocks.insert });

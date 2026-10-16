@@ -15,6 +15,7 @@
  */
 
 import type { CommitteeKey } from "@/lib/committees";
+import type { NationalityApproval } from "@/lib/nationality";
 export type EventCategory = CommitteeKey;
 
 export type Nationality =
@@ -64,6 +65,7 @@ export interface Profile {
   nationality: Nationality;
   email: string;
   created_at: string;
+  nationality_approval?: NationalityApproval;
 }
 
 export type EventType = "free" | "paid";
@@ -112,6 +114,7 @@ export interface EventRow {
  * ever, for paid events. Safe to render straight from a Server Component or
  * serialize into a client bundle. */
 export interface PublicEvent {
+  purchase_blocked_reason?: string | null;
   id: string;
   slug: string;
   title: string;

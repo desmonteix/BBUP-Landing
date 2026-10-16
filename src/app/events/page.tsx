@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { listEvents } from "@/lib/db/events";
-import { getCurrentNationality } from "@/lib/auth";
+import { getCurrentProfile } from "@/lib/auth";
+import { getAccountApproval, accountApprovalMessage } from "@/lib/nationality";
+import { AccountApprovalNotice } from "@/components/auth/AccountApprovalNotice";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Container } from "@/components/ui/Container";
 import { EventsExplorer } from "@/components/events/EventsExplorer";
@@ -22,11 +24,13 @@ export default async function EventsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const viewerNationality = await getCurrentNationality();
+  const profile = await getCurrentProfile();
+  const viewerNationality = profile && getAccountApproval(profile) === "approved" ? profile.nationality : null;
+  const purchaseBlockedReason = profile ? accountApprovalMessage(profile) : null;
 
   const [upcoming, past] = await Promise.all([
-    listEvents(supabase, { when: "upcoming", viewerNationality, viewerProfileId: user?.id }),
-    listEvents(supabase, { when: "past", viewerNationality, viewerProfileId: user?.id }),
+    listEvents(supabase, { when: "upcoming", viewerNationality, viewerProfileId: user?.id, purchaseBlockedReason }),
+    listEvents(supabase, { when: "past", viewerNationality, viewerProfileId: user?.id, purchaseBlockedReason }),
   ]);
 
   return (
@@ -38,6 +42,7 @@ export default async function EventsPage() {
           description="Every event below is open to exchange students and Peruvian buddies alike."
         />
 
+        {profile && <AccountApprovalNotice profile={profile} />}
         <div className="mt-12">
           <EventsExplorer upcoming={upcoming} past={past} isLoggedIn={Boolean(user)} />
         </div>

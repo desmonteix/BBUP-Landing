@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Nationality, Profile } from "@/lib/types";
+import { getAccountApproval } from "@/lib/nationality";
 
 /** Current authenticated attendee's profile, or null if signed out. Server-only. */
 export async function getCurrentProfile(): Promise<Profile | null> {
@@ -12,7 +13,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, dni_id, nationality, email, created_at")
+    .select("id, first_name, last_name, dni_id, nationality, email, created_at, nationality_approval")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -22,7 +23,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
 export async function getCurrentNationality(): Promise<Nationality | null> {
   const profile = await getCurrentProfile();
-  return (profile?.nationality as Nationality) ?? null;
+  return profile && getAccountApproval(profile) === "approved" ? profile.nationality as Nationality : null;
 }
 
 export async function isCurrentUserAdmin(): Promise<boolean> {

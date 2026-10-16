@@ -7,6 +7,7 @@ import { getEventRowById } from "@/lib/db/events";
 import { resolveTicketPricing, resolvePromotionRate } from "@/lib/pricing";
 import { getEventsWithTickets } from "@/lib/ticketHistory";
 import { verifyNationalityClaim } from "@/lib/nationalityVerification";
+import { accountApprovalMessage } from "@/lib/nationality";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createPaymentPreference, getSiteUrl } from "@/lib/mercadopago";
 import { rsvpSchema, ticketIntentSchema } from "@/lib/validation/schemas";
@@ -123,6 +124,8 @@ export async function createTicketIntent(
     profileId: profile.id, context: "checkout",
   });
   if (nationalityError) return { ok: false, error: `${nationalityError.message} Corrígelo en tu perfil antes de comprar.` };
+  const approvalError = accountApprovalMessage(profile);
+  if (approvalError) return { ok: false, error: approvalError };
 
   const supabase = await createClient();
   const event = await getEventRowById(supabase, parsed.data.eventId);

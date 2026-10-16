@@ -357,8 +357,11 @@ Payment callbacks and return URLs must point to the deployed HTTPS site, not loc
 
 ## Peruvian DNI format rule and failure audit
 
-Apply `supabase/migrations/0008_nationality_validation.sql` after 0007.
-Peruvian nationality claims require exactly eight ASCII digits beginning with 7.
+Apply `supabase/migrations/0008_nationality_validation.sql` after 0007, then
+`0009_nationality_admin_approval.sql` before deploying the approval workflow.
+Peruvian nationality claims require exactly eight ASCII digits. A DNI beginning
+with 7 is approved automatically; other first digits require an administrator's
+approval. A pending request is not a malformed-DNI failure.
 Validation uses the raw input: letters, punctuation, spaces and line breaks are
 rejected, including leading/trailing spaces. Invalid form submissions go through
 an audit-only server action; they never invoke the account-creation action.
@@ -381,3 +384,26 @@ cannot start paid checkout until corrected in My account. The profile form allow
 the user to correct their document number. Application audit writes are separate
 requests, so rejecting profile creation cannot roll them back; an audit outage
 still rejects the invalid claim and is reported in server logs.
+
+### Administrator account approval
+
+Open **Admin → Revisar cuentas pendientes de aprobación** (`/admin/approvals`).
+Review the applicant's name, email and DNI, then approve or reject. The authenticated
+admin is checked both by the server action and the database function; clients
+cannot supply a reviewer identity or approve themselves through direct profile writes.
+
+Pending and rejected accounts can sign in to see their status and correct their
+profile, but cannot start ticket checkout or receive resolved ticket prices.
+Approval and payment status are independent. The database also checks eligibility
+when reserving tickets, covering a profile change during checkout preparation.
+
+The decision is bound to the DNI and nationality reviewed. Changing either resets
+the review; editing only the person's name preserves it. The reviewer and timestamp
+are stored in `nationality_reviewed_by` and `nationality_reviewed_at`. Existing valid
+eight-digit Peruvian profiles not starting with 7 enter the review queue during
+migration, without changing their previous payments.
+
+Rollout: apply migration 0009 first, then deploy this version. Signup checks that the
+review schema exists before creating a manual-review Auth account. Verification
+includes unit tests, Chrome form checks, and a local PostgreSQL run of all nine
+migrations with self-approval, stale-document and unapproved-checkout denial cases.

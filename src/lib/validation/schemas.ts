@@ -25,7 +25,7 @@ export const signupSchema = z.object({
     .min(8, "Password must be at least 8 characters")
     .max(128),
 }).refine((data) => data.nationality !== "Peruvian" || isValidPeruvianDni(data.dniId), {
-  path: ["dniId"], message: "DNI inválido. Debe tener exactamente 8 dígitos y empezar por 7.",
+  path: ["dniId"], message: "DNI inválido. Debe tener exactamente 8 dígitos, sin letras, signos ni espacios.",
 });
 
 export const loginSchema = z.object({
@@ -51,7 +51,7 @@ export const profileUpdateSchema = z.object({
   nationality: z.enum(NATIONALITIES as [string, ...string[]]),
   dniId: documentIdSchema,
 }).refine((data) => data.nationality !== "Peruvian" || isValidPeruvianDni(data.dniId), {
-  path: ["dniId"], message: "DNI inválido. Debe tener exactamente 8 dígitos y empezar por 7.",
+  path: ["dniId"], message: "DNI inválido. Debe tener exactamente 8 dígitos, sin letras, signos ni espacios.",
 });
 
 export const rsvpSchema = z.object({
