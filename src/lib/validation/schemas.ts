@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NATIONALITIES } from "@/lib/types";
 import { COMMITTEE_KEYS } from "@/lib/committees";
+import { isValidPeruvianDni } from "@/lib/nationality";
 
 /**
  * Server-side validation schemas. Every Server Action / Route Handler that
@@ -22,6 +23,8 @@ export const signupSchema = z.object({
     .string()
     .min(8, "Password must be at least 8 characters")
     .max(128),
+}).refine((data) => data.nationality !== "Peruvian" || isValidPeruvianDni(data.dniId), {
+  path: ["dniId"], message: "DNI inválido. Debe tener exactamente 8 dígitos y empezar por 7.",
 });
 
 export const loginSchema = z.object({
@@ -45,6 +48,9 @@ export const profileUpdateSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
   nationality: z.enum(NATIONALITIES as [string, ...string[]]),
+  dniId: z.string().trim().min(4, "Enter a valid ID/passport number").max(30),
+}).refine((data) => data.nationality !== "Peruvian" || isValidPeruvianDni(data.dniId), {
+  path: ["dniId"], message: "DNI inválido. Debe tener exactamente 8 dígitos y empezar por 7.",
 });
 
 export const rsvpSchema = z.object({

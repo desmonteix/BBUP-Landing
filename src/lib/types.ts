@@ -10,7 +10,8 @@
  * charges in PEN (Mercado Pago's Peru Checkout Pro cannot process EUR —
  * see src/lib/pricing.ts) — for non-Peruvian buyers it additionally carries
  * their EUR reference figure and the exchange rate used to convert it, but
- * never the Peruvian PEN price, and vice versa.
+ * never the Peruvian PEN price. Staff buyers also receive their companion's
+ * international rate resolved in PEN, so mixed orders can be previewed safely.
  */
 
 import type { CommitteeKey } from "@/lib/committees";
@@ -129,8 +130,7 @@ export interface PublicEvent {
   offer_rules: OfferRules;
   terms_text: string;
   terms_url: string;
-  /** Only ever populated server-side for the currently authenticated
-   * viewer, resolved from THEIR OWN nationality. Exactly one price. */
+  /** Server-resolved for the viewer, including purchase history and their +1 tariff. */
   resolved_price: ResolvedPrice | null;
   terms_version: string;
   promotion_exchange_rate: PromotionExchangeRate | null;
@@ -146,6 +146,10 @@ export interface PublicEvent {
  */
 export interface ResolvedPrice {
   chargeAmountPen: number;
+  /** Converted international rate for a staff companion; null blocks that purchase. */
+  companionPricePen?: number | null;
+  staffEntryAvailable?: boolean;
+  isAdditionalTicket?: boolean;
   displayPriceEur: number | null;
   exchangeRate: number | null;
   /**
@@ -169,7 +173,7 @@ export interface Registration {
   phone: string | null;
   kind: RegistrationKind;
   ticket_quantity: number;
-  pricing_snapshot: { subtotalPen: number; savingsPen: number; appliedOffer: string | null; promotionReference?: PromotionReference | null } | null;
+  pricing_snapshot: { subtotalPen: number; savingsPen: number; appliedOffer: string | null; promotionReference?: PromotionReference | null; primaryPricePen?: number; companionPricePen?: number | null } | null;
   terms_accepted_at: string | null;
   terms_text_snapshot: string | null;
   terms_url_snapshot: string | null;

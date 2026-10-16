@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { getEventRowById } from "@/lib/db/events";
-import { resolvePriceForNationality, resolvePromotionRate } from "@/lib/pricing";
+import { resolveTicketPricing, resolvePromotionRate } from "@/lib/pricing";
+import { getEventsWithTickets } from "@/lib/ticketHistory";
+import { verifyNationalityClaim } from "@/lib/nationalityVerification";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createPaymentPreference, getSiteUrl } from "@/lib/mercadopago";
 import { rsvpSchema, ticketIntentSchema } from "@/lib/validation/schemas";
@@ -100,8 +102,9 @@ export type TicketIntentResult =
  * buyer's price server-side (spec §5, §8 — PEN always, EUR is
  * display-only, see src/lib/pricing.ts), and opens a Mercado Pago Checkout
  * Pro preference for the resolved PEN amount. Returns ONLY that buyer's
- * own resolved price plus the hosted-checkout redirect URL — never the
- * other nationality's price. Requires a logged-in profile so the
+ * own resolved order total plus the hosted-checkout redirect URL.
+ * Staff companions use the international tariff converted to PEN.
+ * Requires a logged-in profile so the
  * nationality lookup has something to resolve against.
  */
 export async function createTicketIntent(
@@ -114,6 +117,12 @@ export async function createTicketIntent(
 
   const profile = await getCurrentProfile();
   if (!profile) return { ok: false, error: "Log in to buy a ticket." };
+  const nationalityError = await verifyNationalityClaim({
+    nationality: profile.nationality, dniId: profile.dni_id,
+    firstName: profile.first_name, lastName: profile.last_name,
+    profileId: profile.id, context: "checkout",
+  });
+  if (nationalityError) return { ok: false, error: `${nationalityError.message} Corrígelo en tu perfil antes de comprar.` };
 
   const supabase = await createClient();
   const event = await getEventRowById(supabase, parsed.data.eventId);
@@ -130,26 +139,32 @@ export async function createTicketIntent(
   if (parsed.data.companion && !event.allow_companion) {
     return { ok: false, error: "This event does not allow a +1." };
   }
-  const quantity = parsed.data.companion ? 2 : 1;
+  const priorEvents = await getEventsWithTickets(profile.id, [event.id]);
+  if (priorEvents == null) return { ok: false, error: "Could not check your previous tickets. Try again shortly." };
+  const hasPriorTicket = priorEvents.has(event.id);
+  if (hasPriorTicket && !parsed.data.companion) {
+    return { ok: false, error: "You already have an entry for this event. Reload and enter your +1's name." };
+  }
+  const quantity = parsed.data.companion && !hasPriorTicket ? 2 : 1;
   const promotion = event.offer_rules?.promotion;
   const [currentRate, euroRate] = await Promise.all([
     getCurrentExchangeRate(),
     promotion?.type === "bundle_price" && promotion.currency === "EUR" ? getEuroPromotionRate() : null,
   ]);
-  const price = resolvePriceForNationality(profile.nationality, event, currentRate);
+  const price = resolveTicketPricing(profile.nationality, event, currentRate, hasPriorTicket);
   if (!price) {
     return {
       ok: false,
       error:
         profile.nationality === "Peruvian"
-          ? "Pricing is not available for this event yet."
+          ? "Pricing or the EUR/PEN exchange rate is unavailable. Try again shortly."
           : "We couldn't load today's exchange rate — try again shortly.",
     };
   }
 
   const admin = createAdminClient();
   const quote = quoteTickets(price, quantity, event.offer_rules, Date.now(), resolvePromotionRate(event.offer_rules, euroRate));
-  if (!quote.available) return { ok: false, error: "The promotion exchange rate is temporarily unavailable. Try again shortly." };
+  if (!quote.available) return { ok: false, error: "The EUR/PEN exchange rate is temporarily unavailable. Try again shortly." };
   const totalPen = quote.chargeAmountPen;
   const totalEur = quote.displayPriceEur;
   if (parsed.data.expectedAmountPen != null && Math.round(parsed.data.expectedAmountPen * 100) !== Math.round(totalPen * 100)) {
@@ -179,7 +194,10 @@ export async function createTicketIntent(
       phone: null,
       kind: "ticket",
       ticket_quantity: quantity,
-      pricing_snapshot: { subtotalPen: quote.subtotalPen, savingsPen: quote.savingsPen, appliedOffer: quote.appliedOffer, promotionReference: quote.promotionReference },
+      uses_staff_price: price.staffEntryAvailable === true,
+      is_companion_ticket: hasPriorTicket,
+      pricing_snapshot: { subtotalPen: quote.subtotalPen, savingsPen: quote.savingsPen, appliedOffer: quote.appliedOffer, promotionReference: quote.promotionReference,
+        primaryPricePen: price.chargeAmountPen, companionPricePen: quantity === 2 ? price.companionPricePen ?? price.chargeAmountPen : null },
       terms_accepted_at: new Date().toISOString(),
       terms_text_snapshot: event.terms_text,
       terms_url_snapshot: event.terms_url,
@@ -195,6 +213,7 @@ export async function createTicketIntent(
 
   if (error || !data) {
     console.error("[registrations] ticket intent insert failed", error);
+    if (error?.code === "23505") return { ok: false, error: "Your personal ticket was reserved in another checkout. Reload the event to buy your +1 at the current price." };
     return { ok: false, error: "Something went wrong. Try again in a moment." };
   }
 

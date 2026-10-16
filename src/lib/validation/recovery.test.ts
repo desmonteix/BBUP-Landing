@@ -29,7 +29,7 @@ describe("resetPasswordSchema", () => {
 
     // Pinned to signup rather than to the literal 8, so raising one and
     // forgetting the other fails here instead of in production.
-    const signupPassword = signupSchema.shape.password;
+    const signupPassword = signupSchema.innerType().shape.password;
     expect(signupPassword.safeParse(short).success).toBe(false);
     expect(signupPassword.safeParse("newpass123").success).toBe(true);
   });

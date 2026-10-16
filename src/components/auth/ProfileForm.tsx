@@ -17,6 +17,8 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <TextField label="First name" name="firstName" defaultValue={profile.first_name} required />
         <TextField label="Last name" name="lastName" defaultValue={profile.last_name} required />
       </div>
+      <TextField label="DNI / passport number" name="dniId" defaultValue={profile.dni_id} autoComplete="off" required
+        hint="Para nacionalidad peruana: exactamente 8 dígitos y debe empezar por 7." />
       <div>
         <label htmlFor="nationality" className="mb-1.5 block text-sm font-semibold text-ink/80">
           Nationality

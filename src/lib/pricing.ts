@@ -114,6 +114,26 @@ export function resolvePriceForNationality(
   };
 }
 
+/** A staff buyer gets one local-price entry per event. Companions use EUR converted to PEN. */
+export function resolveTicketPricing(
+  nationality: Nationality | string,
+  event: { price_pen: number | null; price_eur: number | null },
+  currentExchangeRate: ExchangeRate | null,
+  hasPriorTicket: boolean
+): ResolvedPrice | null {
+  const international = resolvePriceForNationality("international", event, currentExchangeRate);
+  if (nationality !== "Peruvian") return international && { ...international, isAdditionalTicket: hasPriorTicket };
+  const primary = hasPriorTicket ? international : resolvePriceForNationality(nationality, event, currentExchangeRate);
+  if (!primary) return null;
+  return {
+    ...primary,
+    displayPriceEur: null,
+    companionPricePen: international?.chargeAmountPen ?? null,
+    staffEntryAvailable: !hasPriorTicket,
+    isAdditionalTicket: hasPriorTicket,
+  };
+}
+
 /** A package currency has its own conversion, independent of buyer nationality. */
 export function resolvePromotionRate(rules: OfferRules, euroRate: PromotionExchangeRate | null): PromotionExchangeRate | null {
   const promotion = rules?.promotion;

@@ -1,7 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EventRow, EventType, ExchangeRate, Nationality, PublicEvent, PromotionExchangeRate } from "@/lib/types";
-import { resolvePriceForNationality, resolvePromotionRate } from "@/lib/pricing";
+import { resolveTicketPricing, resolvePromotionRate } from "@/lib/pricing";
+import { getEventsWithTickets } from "@/lib/ticketHistory";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { termsVersion } from "@/lib/terms";
@@ -21,7 +22,7 @@ const PUBLIC_COLUMNS =
  */
 export async function listEvents(
   supabase: SupabaseClient<any, any, any>,
-  opts: { when: "upcoming" | "past"; viewerNationality: Nationality | null }
+  opts: { when: "upcoming" | "past"; viewerNationality: Nationality | null; viewerProfileId?: string }
 ): Promise<PublicEvent[]> {
   const nowIso = new Date().toISOString();
   let query = supabase.from("events").select(PUBLIC_COLUMNS);
@@ -43,14 +44,14 @@ export async function listEvents(
 
   // Logged-in buyers need their nationality rate and any package currency rate.
   // Anonymous event browsing does not trigger currency conversion.
-  const needsRate = opts.viewerNationality != null && rows.some((row) => row.type === "paid" &&
-    (opts.viewerNationality !== "Peruvian" || row.offer_rules?.promotion?.type === "bundle_price" && row.offer_rules.promotion.currency === "EUR"));
+  const needsRate = opts.viewerNationality != null && rows.some((row) => row.type === "paid");
   const needsEuroRate = opts.viewerNationality != null && rows.some((row) => row.type === "paid" && row.offer_rules?.promotion?.type === "bundle_price" && row.offer_rules.promotion.currency === "EUR");
-  const [currentRate, euroRate] = await Promise.all([
+  const [currentRate, euroRate, priorEvents] = await Promise.all([
     needsRate ? getCurrentExchangeRate() : null,
     needsEuroRate ? getEuroPromotionRate() : null,
+    opts.viewerProfileId ? getEventsWithTickets(opts.viewerProfileId, rows.filter((row) => row.type === "paid").map((row) => row.id)) : new Set<string>(),
   ]);
-  return withCounts.map((row) => toPublicEvent(row, opts.viewerNationality, currentRate, euroRate));
+  return withCounts.map((row) => toPublicEvent(row, priorEvents == null ? null : opts.viewerNationality, currentRate, euroRate, priorEvents?.has(row.id) ?? false));
 }
 
 export async function getEventRowBySlug(
@@ -100,7 +101,8 @@ export function toPublicEvent(
   row: EventRow & { registration_count?: number },
   viewerNationality: Nationality | null,
   currentExchangeRate: ExchangeRate | null = null,
-  euroRate: PromotionExchangeRate | null = null
+  euroRate: PromotionExchangeRate | null = null,
+  hasPriorTicket = false
 ): PublicEvent {
   const spotsRemaining =
     row.capacity == null
@@ -130,7 +132,7 @@ export function toPublicEvent(
     terms_version: termsVersion(row.terms_text, row.terms_url),
     resolved_price:
       row.type === "paid" && viewerNationality
-        ? resolvePriceForNationality(viewerNationality, row, currentExchangeRate)
+        ? resolveTicketPricing(viewerNationality, row, currentExchangeRate, hasPriorTicket)
         : null,
   };
 }

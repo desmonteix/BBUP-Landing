@@ -13,10 +13,12 @@ import {
 } from "@/lib/validation/schemas";
 import { sendPasswordReset } from "@/lib/resend";
 import { getSiteUrl } from "@/lib/mercadopago";
+import { verifyNationalityClaim } from "@/lib/nationalityVerification";
 
 export type AuthState = {
   status: "idle" | "error" | "success";
   message?: string;
+  errorType?: "TypeError";
 };
 
 /**
@@ -29,6 +31,11 @@ export type AuthState = {
  * that exact user id, so bypassing RLS here is safe by construction.
  */
 export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const nationalityError = await verifyNationalityClaim({
+    firstName: formData.get("firstName"), lastName: formData.get("lastName"),
+    nationality: formData.get("nationality"), dniId: formData.get("dniId"), context: "signup",
+  });
+  if (nationalityError) return nationalityError;
   const parsed = signupSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -314,21 +321,25 @@ export async function logout() {
 }
 
 export async function updateProfile(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Log in to update your profile." };
+  const nationalityError = await verifyNationalityClaim({
+    firstName: formData.get("firstName"), lastName: formData.get("lastName"),
+    nationality: formData.get("nationality"), dniId: formData.get("dniId"),
+    profileId: user.id, context: "profile",
+  });
+  if (nationalityError) return nationalityError;
   const parsed = profileUpdateSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
     nationality: formData.get("nationality"),
+    dniId: formData.get("dniId"),
   });
 
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", message: "Log in to update your profile." };
 
   const { error } = await supabase
     .from("profiles")
@@ -336,6 +347,7 @@ export async function updateProfile(_prev: AuthState, formData: FormData): Promi
       first_name: parsed.data.firstName,
       last_name: parsed.data.lastName,
       nationality: parsed.data.nationality,
+      dni_id: parsed.data.dniId,
     })
     .eq("id", user.id);
 

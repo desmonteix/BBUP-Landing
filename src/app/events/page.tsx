@@ -25,8 +25,8 @@ export default async function EventsPage() {
   const viewerNationality = await getCurrentNationality();
 
   const [upcoming, past] = await Promise.all([
-    listEvents(supabase, { when: "upcoming", viewerNationality }),
-    listEvents(supabase, { when: "past", viewerNationality }),
+    listEvents(supabase, { when: "upcoming", viewerNationality, viewerProfileId: user?.id }),
+    listEvents(supabase, { when: "past", viewerNationality, viewerProfileId: user?.id }),
   ]);
 
   return (

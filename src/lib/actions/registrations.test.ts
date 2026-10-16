@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ profile: vi.fn(), event: vi.fn(), rate: vi.fn(), euroRate: vi.fn(), preference: vi.fn(), insert: vi.fn(), bookings: vi.fn(), update: vi.fn() }));
+const mocks = vi.hoisted(() => ({ profile: vi.fn(), event: vi.fn(), rate: vi.fn(), euroRate: vi.fn(), preference: vi.fn(), insert: vi.fn(), bookings: vi.fn(), update: vi.fn(), history: vi.fn(), insertError: vi.fn() }));
+vi.mock("@/lib/ticketHistory", () => ({ getEventsWithTickets: mocks.history }));
 vi.mock("@/lib/auth", () => ({ getCurrentProfile: mocks.profile }));
 vi.mock("@/lib/db/events", () => ({ getEventRowById: mocks.event }));
 vi.mock("@/lib/exchangeRate", () => ({ getCurrentExchangeRate: mocks.rate }));
@@ -9,7 +10,7 @@ vi.mock("@/lib/resend", () => ({ sendRsvpConfirmation: vi.fn(), sendTicketReceip
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () => ({
   select: () => ({ eq: () => ({ in: mocks.bookings }) }),
-  insert: (row: unknown) => { mocks.insert(row); return { select: () => ({ single: async () => ({ data: { id: "booking" }, error: null }) }) }; },
+  insert: (row: unknown) => { mocks.insert(row); return { select: () => ({ single: async () => ({ data: { id: "booking" }, error: mocks.insertError() ?? null }) }) }; },
   update: (row: unknown) => { mocks.update(row); return { eq: async () => ({ error: null }) }; },
 }) }) }));
 import { createTicketIntent } from "./registrations";
@@ -21,7 +22,9 @@ const consent = { accepted: true, version: createHash("sha256").update(JSON.stri
 const buy = (id: string, plusOne?: { firstName: string; lastName: string }) => createTicketIntent(id, plusOne, consent);
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "Peruvian" });
+  mocks.history.mockResolvedValue(new Set());
+  mocks.insertError.mockReturnValue(null);
+  mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "Peruvian", dni_id: "71234567" });
   mocks.event.mockResolvedValue(event);
   mocks.euroRate.mockResolvedValue(null);
   mocks.rate.mockResolvedValue({ rate: 3.5, source: "manual_override" });
@@ -29,15 +32,21 @@ beforeEach(() => {
   mocks.preference.mockResolvedValue({ ok: true, initPoint: "https://example.com/pay" });
 });
 describe("ticket purchases", () => {
+  it("blocks an existing Peruvian profile with an invalid DNI before pricing or payment", async () => {
+    mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Ana", last_name: "Perez", nationality: "Peruvian", dni_id: "61234567" });
+    expect(await buy(eventId)).toMatchObject({ ok: false, error: expect.stringContaining("TypeError: DNI inválido") });
+    expect(mocks.preference).not.toHaveBeenCalled();
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ full_name: "Ana Perez", message: "Nacionalidad fallida", context: "checkout" }));
+  });
   it("charges one entry without a companion", async () => {
     expect(await buy(eventId)).toMatchObject({ ok: true, chargeAmountPen: 90 });
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 1, companion_first_name: null, amount_pen: 90 }));
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 90 }));
   });
   it("charges two entries and saves both companion names", async () => {
-    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 180 });
-    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, companion_first_name: "Ana", companion_last_name: "Perez", amount_pen: 180 }));
-    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 180 }));
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 195 });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, companion_first_name: "Ana", companion_last_name: "Perez", amount_pen: 195 }));
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 195 }));
   });
   it("uses the buyer's EUR reference and conversion for both entries", async () => {
     mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
@@ -113,12 +122,12 @@ describe("automatic offer checkout", () => {
     mocks.event.mockResolvedValue({ ...event, offer_rules: { promotion: { type: "two_for_one", ...window }, discount: { type: "percentage", value: 20, ...window } } });
     expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 90 });
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 90 }));
-    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, amount_pen: 90, pricing_snapshot: { subtotalPen: 180, savingsPen: 90, appliedOffer: "2x1", promotionReference: null } }));
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, amount_pen: 90, pricing_snapshot: expect.objectContaining({ subtotalPen: 195, savingsPen: 105, appliedOffer: "2x1", promotionReference: null }) }));
   });
   it("charges a better percentage discount instead of 2x1", async () => {
     mocks.event.mockResolvedValue({ ...event, offer_rules: { promotion: { type: "two_for_one", ...window }, discount: { type: "percentage", value: 60, ...window } } });
-    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 72 });
-    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 72 }));
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 78 });
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 78 }));
   });
   it("applies fixed discounts to the converted PEN price for international buyers", async () => {
     mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
@@ -152,5 +161,59 @@ describe("custom EUR package checkout", () => {
     mocks.event.mockResolvedValue({ ...event, offer_rules: rules });
     expect(await buy(eventId, companion)).toMatchObject({ ok: false });
     expect(mocks.preference).not.toHaveBeenCalled();expect(mocks.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("separate companion purchases", () => {
+  it("charges staff 80 and their companion 96 in the same order", async () => {
+    mocks.event.mockResolvedValue({ ...event, price_pen: 80, price_eur: 24 });
+    mocks.rate.mockResolvedValue({ rate: 4, source: "manual_override" });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 176, displayPriceEur: null });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ uses_staff_price: true, ticket_quantity: 2, amount_pen: 176 }));
+  });
+  it("charges the international PEN price for a separately purchased +1", async () => {
+    mocks.history.mockResolvedValue(new Set([eventId]));
+    mocks.event.mockResolvedValue({ ...event, price_pen: 80, price_eur: 24 });
+    mocks.rate.mockResolvedValue({ rate: 4, source: "manual_override" });
+    expect(await createTicketIntent(eventId, companion, { ...consent, expectedAmountPen: 96 })).toMatchObject({ ok: true, chargeAmountPen: 96, displayPriceEur: null });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ uses_staff_price: false, is_companion_ticket: true, ticket_quantity: 1, companion_first_name: "Ana", amount_pen: 96 }));
+    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 96 }));
+  });
+  it("preserves foreign pricing for a separately purchased +1", async () => {
+    mocks.history.mockResolvedValue(new Set([eventId]));
+    mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 105, displayPriceEur: 30 });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 1, uses_staff_price: false }));
+  });
+  it("requires names when purchasing a separate companion", async () => {
+    mocks.history.mockResolvedValue(new Set([eventId]));
+    expect(await buy(eventId)).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it("rejects an outdated staff-price preview after a prior reservation", async () => {
+    mocks.history.mockResolvedValue(new Set([eventId]));
+    expect(await createTicketIntent(eventId, companion, { ...consent, expectedAmountPen: 90 })).toMatchObject({ ok: false });
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("fails closed when previous purchases cannot be checked", async () => {
+    mocks.history.mockResolvedValue(null);
+    expect(await buy(eventId)).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it("cannot silently use the staff tariff for a companion when FX is unavailable", async () => {
+    mocks.rate.mockResolvedValue(null);
+    expect(await buy(eventId, companion)).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(await buy(eventId)).toMatchObject({ ok: true, chargeAmountPen: 90 });
+  });
+  it("does not open payment when a simultaneous checkout claimed the staff rate", async () => {
+    mocks.insertError.mockReturnValue({ code: "23505" });
+    expect(await buy(eventId)).toMatchObject({ ok: false, error: expect.stringContaining("another checkout") });
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("still sells a separate companion if exactly one seat remains", async () => {
+    mocks.history.mockResolvedValue(new Set([eventId]));
+    mocks.bookings.mockResolvedValue({ data: [{ ticket_quantity: 9 }], error: null });
+    expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 105 });
   });
 });

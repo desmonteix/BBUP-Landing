@@ -40,11 +40,13 @@ export function TicketForm({
   const [intent, setIntent] = useState<Intent>({ state: "idle" });
   const [pending, startTransition] = useTransition();
   const [withCompanion, setWithCompanion] = useState(false);
+  const additionalTicket = resolvedPrice?.isAdditionalTicket === true;
+  const needsCompanionNames = additionalTicket || withCompanion;
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const hasTerms = Boolean(termsText || termsUrl);
-  const quantity = withCompanion ? 2 : 1;
+  const quantity = withCompanion && !additionalTicket ? 2 : 1;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -81,11 +83,11 @@ export function TicketForm({
   return (
     <form className="space-y-4" onSubmit={(e) => {
       e.preventDefault();
-      if (busy || !acceptedTerms || !hasTerms || !totalPrice?.available) return;
+      if (busy || !acceptedTerms || !hasTerms || !totalPrice?.available || (additionalTicket && !allowCompanion)) return;
       startTransition(async () => {
         setIntent({ state: "creating" });
         try {
-          const result = await createTicketIntent(eventId, withCompanion ? { firstName, lastName } : undefined, { accepted: acceptedTerms, version: termsVersion, expectedAmountPen: totalPrice?.chargeAmountPen });
+          const result = await createTicketIntent(eventId, needsCompanionNames ? { firstName, lastName } : undefined, { accepted: acceptedTerms, version: termsVersion, expectedAmountPen: totalPrice?.chargeAmountPen });
           if (!result.ok) { setIntent({ state: "error", message: result.error }); return; }
           setIntent({ state: "redirecting" });
           window.location.href = result.initPoint;
@@ -96,14 +98,15 @@ export function TicketForm({
     }}>
       {allowCompanion && (
         <fieldset disabled={busy} className="space-y-3 rounded-md border border-border p-4">
-          <label className="flex items-center gap-3 text-sm font-semibold">
+          {additionalTicket ? <p className="text-sm font-semibold">Ya tienes una entrada reservada o pagada. Comprar entrada para tu +1.</p> : <label className="flex items-center gap-3 text-sm font-semibold">
             <input type="checkbox" checked={withCompanion} onChange={(e) => setWithCompanion(e.target.checked)}
               disabled={spotsRemaining != null && spotsRemaining < 2} className="h-4 w-4 accent-pink" />
             Llevo un +1 (acompañante)
-          </label>
+          </label>}
           <p className="text-xs text-ink/60">El +1 ocupa una entrada adicional. Las promociones y descuentos vigentes se reflejan en el total.</p>
-          {spotsRemaining != null && spotsRemaining < 2 && <p className="text-xs text-ink/60">Solo queda un cupo disponible.</p>}
-          {withCompanion && (
+          {resolvedPrice?.staffEntryAvailable !== undefined && <p className="text-xs text-ink/70">La tarifa de staff se aplica a una sola entrada por evento. Tu +1 paga la tarifa de extranjeros, convertida y cobrada en soles.</p>}
+          {spotsRemaining != null && spotsRemaining < 2 && !additionalTicket && <p className="text-xs text-ink/60">Solo queda un cupo disponible.</p>}
+          {needsCompanionNames && (
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm font-semibold">Nombre del acompañante
                 <input name="companionFirstName" autoComplete="off" value={firstName} onChange={(e) => setFirstName(e.target.value)} required maxLength={100}
@@ -117,13 +120,23 @@ export function TicketForm({
           )}
         </fieldset>
       )}
-      {totalPrice && !totalPrice.available && <p role="status" className="text-sm text-ink/65">El tipo de cambio de la promoción no está disponible temporalmente. Vuelve a intentarlo en unos minutos.</p>}
+      {additionalTicket && !allowCompanion && <p role="status" className="text-sm text-ink/65">Ya tienes una entrada para este evento y el organizador no permite acompañantes.</p>}
+      {totalPrice && !totalPrice.available && <p role="status" className="text-sm text-ink/65">El tipo de cambio EUR/PEN no está disponible temporalmente. Vuelve a intentarlo en unos minutos.</p>}
       {totalPrice?.available && (
         <div className="rounded-md border border-border bg-paper-sunk p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">
             Total ({quantity} {quantity === 1 ? "entrada" : "entradas"})
           </p>
-          {totalPrice.promotionReference ? (
+          {resolvedPrice?.staffEntryAvailable !== undefined ? (
+            <>
+              <p className="mt-1 font-display text-2xl font-semibold text-ink">{formatMoney(totalPrice.chargeAmountPen, "PEN")}</p>
+              <div className="mt-2 space-y-1 text-sm text-ink/70">
+                <p>{additionalTicket ? "Entrada +1 (tarifa de extranjeros en soles)" : "Tu entrada (staff)"}: {formatMoney(resolvedPrice.chargeAmountPen, "PEN")}</p>
+                {quantity === 2 && resolvedPrice.companionPricePen != null && <p>Entrada +1 (tarifa de extranjeros en soles): {formatMoney(resolvedPrice.companionPricePen, "PEN")}</p>}
+                {totalPrice.savingsPen > 0 && <p>{totalPrice.appliedOffer}: −{formatMoney(totalPrice.savingsPen, "PEN")}</p>}
+              </div>
+            </>
+          ) : totalPrice.promotionReference ? (
             <>
               <p className="mt-1 font-display text-2xl font-semibold text-ink">{formatMoney(totalPrice.promotionReference.amount, totalPrice.promotionReference.currency)}</p>
               <p className="mt-1 text-sm text-ink/70">{formatMoney(totalPrice.chargeAmountPen, "PEN")} a cobrar en soles</p>
@@ -178,7 +191,7 @@ export function TicketForm({
 
       <button
         type="submit"
-        disabled={busy || !resolvedPrice || !acceptedTerms || !hasTerms || !totalPrice?.available}
+        disabled={busy || !resolvedPrice || !acceptedTerms || !hasTerms || !totalPrice?.available || (additionalTicket && !allowCompanion)}
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-buddy px-6 py-3 font-display font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-60"
       >
         {intent.state === "redirecting" ? (

@@ -304,6 +304,27 @@ in migration 0005; no additional SQL migration is needed.
 
 ## EUR pricing migration
 
+## Staff and companion pricing
+
+Apply `supabase/migrations/0007_staff_companion_pricing.sql` after migration 0006.
+A Peruvian staff buyer gets one personal PEN tariff per event. Their companion
+uses the international EUR tariff converted to PEN at the same effective rate
+used for foreign buyers. For example, S/80 personal + S/96 companion = S/176.
+Foreign buyers and their companions retain the same EUR reference tariff.
+
+Pending and paid tickets count toward the buyer's personal entry; failed
+attempts do not. After an existing reservation, the event form sells one named
+companion ticket, including when only one seat remains. A later staff companion
+costs S/96 in the example, and cannot reuse the personal S/80 tariff. Staff see
+the itemized prices and total in soles; international buyers retain EUR references.
+Active offers still apply to the resulting subtotal and do not stack.
+
+The server independently checks history, prices, consent and capacity before
+payment. A partial unique index prevents simultaneous checkouts from both
+claiming the staff tariff. Historical purchase amounts are preserved.
+
+## EUR pricing migration details
+
 Apply `supabase/migrations/0006_euro_pricing.sql` before running this version.
 Event prices retain their numeric amounts and are now denominated in EUR
 (30 USD becomes 30 EUR); configured USD packages are likewise changed to EUR.
@@ -316,3 +337,24 @@ After migration, run the authenticated `/api/cron/exchange-rate` endpoint or
 set a verified EUR/PEN manual rate in `/admin`. Until an EUR rate is available,
 regular non-Peruvian checkout remains unavailable. No guessed rate is seeded.
 Automatic rates retain the existing S/ 0.10 margin; manual rates are final.
+
+## Peruvian DNI format rule and failure audit
+
+Apply `supabase/migrations/0008_nationality_validation.sql` after 0007.
+Peruvian nationality claims require exactly eight ASCII digits beginning with 7.
+This is the requested business format rule, not proof of identity or citizenship.
+Foreign passport validation remains unchanged.
+
+Signup and profile changes validate on the server. Invalid claims return a
+controlled `TypeError: DNI inválido` message and create a row in
+`pagina_web.nationality_failures` with `full_name`, `message = 'Nacionalidad fallida'`,
+context, timestamp, and the profile ID when authenticated. Failed signup does not
+create an Auth account. The audit never contains the DNI or password. Only admins
+can read these records through the Data API; inserts use the server service role.
+
+The database constraint also blocks invalid direct profile writes. Existing rows
+are preserved by a `NOT VALID` constraint, but an invalid legacy Peruvian profile
+cannot start paid checkout until corrected in My account. The profile form allows
+the user to correct their document number. Application audit writes are separate
+requests, so rejecting profile creation cannot roll them back; an audit outage
+still rejects the invalid claim and is reported in server logs.

@@ -11,10 +11,11 @@ export interface TicketQuote extends ResolvedPrice {
 /** Same cents-based calculation for the preview and the authoritative server charge. */
 export function quoteTickets(price: ResolvedPrice, quantity: 1 | 2, rules: OfferRules = {}, now = Date.now(), promotionRate: PromotionExchangeRate | null = null): TicketQuote {
   const unitCents = Math.round(price.chargeAmountPen * 100);
-  const subtotal = unitCents * quantity;
+  const companionCents = Math.round((price.companionPricePen ?? price.chargeAmountPen) * 100);
+  const subtotal = unitCents + (quantity === 2 ? companionCents : 0);
   let total = subtotal;
   let appliedOffer: string | null = null;
-  let available = true;
+  let available = !(quantity === 2 && price.companionPricePen === null);
   let promotionReference: PromotionReference | null = null;
   const active = (window: { startsAt: string; endsAt: string }) =>
     now >= Date.parse(window.startsAt) && now < Date.parse(window.endsAt);

@@ -35,7 +35,7 @@ export function SignupForm() {
         name="dniId"
         autoComplete="off"
         required
-        hint="Stored on your profile only — never used to log in."
+        hint="Para nacionalidad peruana: exactamente 8 dígitos y debe empezar por 7."
       />
       <div>
         <label htmlFor="nationality" className="mb-1.5 block text-sm font-semibold text-ink/80">
