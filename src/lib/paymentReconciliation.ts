@@ -14,9 +14,9 @@ export interface ReconciliationResult {
 }
 
 /** Recover lost notifications using verified provider data; never infer a payment from attendance. */
-export async function reconcileRegistrations(rows: { id: string; payment_status: string }[]): Promise<ReconciliationResult> {
+export async function reconcileRegistrations(rows: { id: string; payment_status: string; payment_method?: string }[]): Promise<ReconciliationResult> {
   const result: ReconciliationResult = { checked: 0, confirmed: 0, failed: 0, notFound: 0, errors: 0, checks: {} };
-  const pending = rows.filter(row => row.payment_status === "pending" || row.payment_status === "failed");
+  const pending = rows.filter(row => row.payment_method !== "transfer" && (row.payment_status === "pending" || row.payment_status === "failed"));
   for (let start = 0; start < pending.length; start += 5) {
     await Promise.all(pending.slice(start, start + 5).map(async row => {
       result.checked++;

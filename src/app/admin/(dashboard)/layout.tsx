@@ -16,6 +16,7 @@ export default function AdminDashboardLayout({
             <LayoutDashboard size={18} className="text-pink" />
             Best Buddy UP! — Admin
           </Link>
+          <Link href="/admin/transfers" className="text-sm font-semibold text-white">Transferencias</Link>
           <form action={logout}>
             <button
               type="submit"

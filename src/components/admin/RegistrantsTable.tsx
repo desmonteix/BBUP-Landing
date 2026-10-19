@@ -70,11 +70,13 @@ export function RegistrantsTable({ registrants, checks = {} }: { registrants: Ad
                   }
                 >
                   {r.payment_status === "paid" ? "Pagado"
+                    : r.payment_method === "transfer" ? "Transferencia: pendiente de revisión"
                     : checks[r.id] === "error" ? "No se pudo verificar"
                     : r.payment_status === "failed" ? "Rechazado / cancelado"
                     : r.payment_status === "n/a" ? "No requiere pago"
                     : checks[r.id] === "not-found" ? "Sin pago registrado" : "Pendiente de confirmación"}
                 </Badge>
+                {r.payment_method === "transfer" && <a href="/admin/transfers" className="mt-1 block text-xs text-pink underline">Ver comprobantes</a>}
                 {r.mercadopago_payment_id && <span className="mt-1 block text-xs text-ink/60">MP: {r.mercadopago_payment_id}</span>}
               </td>
             </tr>

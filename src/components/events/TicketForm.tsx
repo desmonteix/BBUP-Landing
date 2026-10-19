@@ -47,6 +47,7 @@ export function TicketForm({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "transfer">("transfer");
   const hasTerms = Boolean(termsText || termsUrl);
   const quantity = withCompanion && !additionalTicket ? 2 : 1;
   const [now, setNow] = useState(() => Date.now());
@@ -92,7 +93,7 @@ export function TicketForm({
       startTransition(async () => {
         setIntent({ state: "creating" });
         try {
-          const result = await createTicketIntent(eventId, needsCompanionNames ? { firstName, lastName } : undefined, { accepted: acceptedTerms, version: termsVersion, expectedAmountPen: totalPrice?.chargeAmountPen });
+          const result = await createTicketIntent(eventId, needsCompanionNames ? { firstName, lastName } : undefined, { accepted: acceptedTerms, version: termsVersion, expectedAmountPen: totalPrice?.chargeAmountPen }, paymentMethod);
           if (!result.ok) { setIntent({ state: "error", message: result.error }); return; }
           setIntent({ state: "redirecting" });
           window.location.href = result.initPoint;
@@ -153,9 +154,9 @@ export function TicketForm({
                 {formatMoney(totalPrice.displayPriceEur, "EUR")}
               </p>
               <p className="mt-1 text-sm text-ink/70">
-                ≈ {formatMoney(totalPrice.chargeAmountPen, "PEN")} charged to your card
+                ≈ {formatMoney(totalPrice.chargeAmountPen, "PEN")} {paymentMethod === "transfer" ? "if transferring in soles" : "charged to your card"}
               </p>
-              <p className="mt-1 text-xs text-ink/70">
+              {paymentMethod === "mercadopago" && <p className="mt-1 text-xs text-ink/70">
                 Mercado Pago (our payment provider in Peru) only processes soles, so your card is
                 charged at our conversion rate of S/ {totalPrice.exchangeRate.toFixed(3)} per
                 €
@@ -164,7 +165,7 @@ export function TicketForm({
                   : ", set by hand by our team."}{" "}
                 Your bank then converts that to your own currency at its own rate, and may add a
                 foreign transaction fee.
-              </p>
+              </p>}
             </>
           ) : (
             <p className="mt-1 font-display text-2xl font-semibold text-ink">
@@ -194,13 +195,19 @@ export function TicketForm({
         </div>
       )}
 
+      {totalPrice && totalPrice.chargeAmountPen > 0 && <fieldset disabled={busy} className="space-y-3 rounded-md border border-border p-4">
+        <legend className="px-2 text-sm font-semibold">Payment method / Medio de pago</legend>
+        <label className="flex gap-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "transfer"} onChange={() => setPaymentMethod("transfer")} />Bank transfer / Transferencia (EUR o PEN)</label>
+        <p className="text-xs text-ink/70">See bank details, transfer and upload your receipt. Your ticket is confirmed after administrator review.</p>
+        <label className="flex gap-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "mercadopago"} onChange={() => setPaymentMethod("mercadopago")} />Card / Tarjeta — Mercado Pago</label>
+      </fieldset>}
       <button
         type="submit"
         disabled={busy || !resolvedPrice || !acceptedTerms || !hasTerms || !totalPrice?.available || (additionalTicket && !allowCompanion)}
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-buddy px-6 py-3 font-display font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-60"
       >
         {intent.state === "redirecting" ? (
-          totalPrice?.chargeAmountPen === 0 ? "Confirmando entradas…" : "Taking you to Mercado Pago…"
+          totalPrice?.chargeAmountPen === 0 ? "Confirmando entradas…" : paymentMethod === "transfer" ? "Opening transfer details…" : "Taking you to Mercado Pago…"
         ) : intent.state === "creating" || pending ? (
           "Preparing checkout…"
         ) : (
@@ -212,7 +219,7 @@ export function TicketForm({
       </button>
       <p className="flex items-center justify-center gap-1.5 text-xs text-ink/70">
         <ShieldCheck size={14} />
-        {totalPrice?.chargeAmountPen === 0 ? "No se requiere pago." : "Secured by Mercado Pago — your card details never touch our servers."}
+        {totalPrice?.chargeAmountPen === 0 ? "No se requiere pago." : paymentMethod === "transfer" ? "Transfer receipts require administrator approval." : "Secured by Mercado Pago — your card details never touch our servers."}
       </p>
 
       {intent.state === "error" && (

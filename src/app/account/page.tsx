@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { getCurrentProfile } from "@/lib/auth";
@@ -106,6 +107,8 @@ export default async function AccountPage() {
                       >
                         {t.payment_status}
                       </Badge>
+                      {t.payment_status === "pending" && <Link href={`/checkout/transfer/${t.id}`} className="mt-2 block text-sm font-semibold text-pink underline">Transfer / Adjuntar comprobante</Link>}
+                      {t.payment_status === "failed" && <Link href="/events" className="mt-2 block text-sm text-pink underline">Nueva reserva por transferencia</Link>}
                     </div>
                   </li>
                 );

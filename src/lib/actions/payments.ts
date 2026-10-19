@@ -17,7 +17,7 @@ export async function refreshEventPayments(eventId: string, previous: Reconcilia
   const offset = Number.isSafeInteger(previous.nextOffset) && previous.nextOffset! >= 0 ? previous.nextOffset! : 0;
   // Stable pagination includes settled rows so recovering a payment cannot skip the next row.
   const { data, error } = await createAdminClient().from("registrations")
-    .select("id, payment_status").eq("event_id", eventId).eq("kind", "ticket")
+    .select("id, payment_status, payment_method").eq("event_id", eventId).eq("kind", "ticket")
     .order("created_at", { ascending: true }).order("id", { ascending: true }).range(offset, offset + 20);
   if (error) return { status: "error", message: "No se pudieron consultar las compras del evento." };
   const rows = data ?? [];

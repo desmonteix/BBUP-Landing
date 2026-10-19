@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdmin } from "@/lib/auth";
 import { Plus } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatEventDate } from "@/lib/utils";
@@ -13,8 +14,9 @@ export const metadata = { title: "Admin — Events" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
+  await requireAdmin();
   const admin = createAdminClient();
-  const [{ data: events }, { data: regCounts }, currentRate] = await Promise.all([
+  const [{ data: events }, { data: regCounts }, currentRate, receiptQueue] = await Promise.all([
     admin
       .from("events")
       .select("id, slug, title, event_date, type, status, category, capacity")
@@ -24,6 +26,7 @@ export default async function AdminDashboardPage() {
       .select("event_id, ticket_quantity")
       .in("payment_status", ["n/a", "pending", "paid"]),
     getCurrentExchangeRate(),
+    admin.from("payment_receipts").select("id", { count: "exact", head: true }).eq("status", "pending"),
   ]);
 
   const counts = new Map<string, number>();
@@ -49,6 +52,11 @@ export default async function AdminDashboardPage() {
       />
 
       <Link href="/admin/approvals" className="mt-6 inline-flex rounded-md border border-border bg-white px-5 py-3 text-sm font-semibold text-pink hover:underline">Revisar cuentas pendientes de aprobación</Link>
+      <div className="mt-6 rounded-md border border-border bg-white p-6">
+        <h2 className="font-display text-xl font-semibold">Aprobar entradas por transferencia</h2>
+        <p className="mt-2 text-sm text-ink/70">{receiptQueue.error ? "No se pudo consultar la cantidad de pendientes." : `${receiptQueue.count ?? 0} comprobantes pendientes de revisión.`} Revisa la imagen y comprueba el ingreso bancario antes de confirmar la compra.</p>
+        <Link href="/admin/transfers" className="mt-4 inline-flex rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white">Ver comprobantes y aprobar entradas</Link>
+      </div>
       <div className="mt-10 flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-ink">Events</h1>
         <Link

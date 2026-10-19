@@ -168,6 +168,7 @@ export type RegistrationKind = "rsvp" | "ticket";
 export type PaymentStatus = "n/a" | "pending" | "paid" | "failed";
 
 export interface Registration {
+  payment_method?: "mercadopago" | "transfer";
   id: string;
   event_id: string;
   profile_id: string | null;
