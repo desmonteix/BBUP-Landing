@@ -4,6 +4,10 @@ vi.mock("@/lib/mercadopago", () => ({ lookupPaymentByRegistration: mocks.lookup 
 vi.mock("@/lib/db/payments", () => ({ applyPaymentToRegistration: mocks.apply }));
 import { reconcileRegistrations } from "./paymentReconciliation";
 beforeEach(() => { vi.clearAllMocks(); });
+it("does not treat bank transfers as missing Mercado Pago payments", async () => {
+  expect(await reconcileRegistrations([{ id: "r1", payment_status: "pending", payment_method: "transfer" }])).toMatchObject({ checked: 0, notFound: 0 });
+  expect(mocks.lookup).not.toHaveBeenCalled();
+});
 it("recovers confirmed payments missing their webhook", async () => {
   const payment = { id: "mp1", status: "approved", externalReference: "r1", transactionAmount: 80 };
   mocks.lookup.mockResolvedValue({ ok: true, payment });mocks.apply.mockResolvedValue("paid");

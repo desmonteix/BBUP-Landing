@@ -111,8 +111,10 @@ export type TicketIntentResult =
 export async function createTicketIntent(
   eventId: string,
   companion?: { firstName: string; lastName: string },
-  consent?: { accepted: boolean; version: string; expectedAmountPen?: number }
+  consent?: { accepted: boolean; version: string; expectedAmountPen?: number },
+  paymentMethod: "mercadopago" | "transfer" = "mercadopago"
 ): Promise<TicketIntentResult> {
+  if (paymentMethod !== "mercadopago" && paymentMethod !== "transfer") return { ok: false, error: "Invalid payment method." };
   const parsed = ticketIntentSchema.safeParse({ eventId, companion, accepted: consent?.accepted, version: consent?.version, expectedAmountPen: consent?.expectedAmountPen });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form." };
 
@@ -210,12 +212,18 @@ export async function createTicketIntent(
       display_price_eur: totalEur,
       exchange_rate_applied: price.exchangeRate,
       payment_status: totalPen === 0 ? "paid" : "pending",
+      payment_method: paymentMethod,
     })
     .select("id")
     .single();
 
   if (error || !data) {
     console.error("[registrations] ticket intent insert failed", error);
+    if (error?.code === "PGRST204" && error.message?.includes("payment_method")) {
+      return { ok: false, error: paymentMethod === "transfer"
+        ? "Bank transfers are not enabled yet. Please contact the organizer. / Las transferencias aún no están habilitadas. Contacta al organizador."
+        : "Payments are temporarily unavailable. Please contact the organizer. / Los pagos no están disponibles temporalmente. Contacta al organizador." };
+    }
     if (error?.code === "23505") return { ok: false, error: "Your personal ticket was reserved in another checkout. Reload the event to buy your +1 at the current price." };
     return { ok: false, error: "Something went wrong. Try again in a moment." };
   }
@@ -231,6 +239,9 @@ export async function createTicketIntent(
     return { ok: true, registrationId, chargeAmountPen: 0, displayPriceEur: totalEur,
       exchangeRate: price.exchangeRate, initPoint: `/checkout/return?registration_id=${registrationId}` };
   }
+
+  if (paymentMethod === "transfer") return { ok: true, registrationId, chargeAmountPen: totalPen,
+    displayPriceEur: totalEur, exchangeRate: price.exchangeRate, initPoint: `/checkout/transfer/${registrationId}` };
 
   const preference = await createPaymentPreference({
     registrationId,

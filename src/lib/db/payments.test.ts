@@ -31,3 +31,8 @@ it("throws on read errors so webhook notifications can be retried", async () => 
   mocks.registration.mockResolvedValue({ data: null, error: { code: "offline" } });
   await expect(applyPaymentToRegistration(payment)).rejects.toThrow("Could not read");
 });
+it("never downgrades a transfer under review for a rejected card attempt", async () => {
+  mocks.registration.mockResolvedValue({ data: { id: "r1", payment_method: "transfer", payment_status: "pending" }, error: null });
+  expect(await applyPaymentToRegistration({ ...payment, status: "rejected" })).toBe("still-pending");
+  expect(mocks.update).not.toHaveBeenCalled();
+});

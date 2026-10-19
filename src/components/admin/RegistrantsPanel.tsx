@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { refreshEventPayments, type ReconciliationState } from "@/lib/actions/payments";
 import { RegistrantsTable } from "@/components/admin/RegistrantsTable";
@@ -12,6 +13,7 @@ export function RegistrantsPanel({ eventId, registrants }: { eventId: string; re
   const confirmedSeats = registrants.filter(row => row.payment_status === "paid").reduce((total, row) => total + row.ticket_quantity, 0);
   const visible = filter === "all" ? registrants : registrants.filter(row => row.payment_status === filter);
   return <div className="space-y-4">
+    <Link href="/admin/transfers" className="inline-flex rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white">Ver comprobantes y aprobar entradas</Link>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-white p-4">
       <div className="text-sm text-ink/75">
         <p><strong className="text-success">{count("paid")} pagados</strong> · {count("pending")} pendientes · {count("failed")} rechazados/cancelados</p>

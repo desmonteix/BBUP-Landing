@@ -41,7 +41,7 @@ export async function applyPaymentToRegistration(
   const { data: registration, error: readError } = await admin
     .from("registrations")
     .select(
-      "id, email, name, event_id, amount_pen, display_price_eur, exchange_rate_applied, payment_status, mercadopago_payment_id, ticket_quantity, companion_first_name, companion_last_name, pricing_snapshot"
+      "id, email, name, event_id, amount_pen, display_price_eur, exchange_rate_applied, payment_status, payment_method, mercadopago_payment_id, ticket_quantity, companion_first_name, companion_last_name, pricing_snapshot"
     )
     .eq("id", payment.externalReference)
     .maybeSingle();
@@ -123,9 +123,11 @@ export async function applyPaymentToRegistration(
   }
 
   if (payment.status === "rejected" || payment.status === "cancelled") {
+    if (registration.payment_method === "transfer") return registration.payment_status === "paid" ? "already-paid" : "still-pending";
     const { data: claimed, error } = await admin
       .from("registrations")
       .update({ payment_status: "failed", mercadopago_payment_id: payment.id })
+      .eq("payment_method", "mercadopago")
       .eq("id", registration.id)
       .neq("payment_status", "paid")
       .select("id");
@@ -137,7 +139,9 @@ export async function applyPaymentToRegistration(
 
     // Guarded by the same claim: a rejected attempt must never pull a paid
     // registration back down.
-    return !claimed || claimed.length === 0 ? "already-paid" : "failed";
+    return !claimed || claimed.length === 0
+      ? registration.payment_status === "paid" ? "already-paid" : "still-pending"
+      : "failed";
   }
 
   // "pending" / "in_process" and anything else: leave it alone.

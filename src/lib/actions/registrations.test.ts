@@ -32,6 +32,16 @@ beforeEach(() => {
   mocks.preference.mockResolvedValue({ ok: true, initPoint: "https://example.com/pay" });
 });
 describe("ticket purchases", () => {
+  it("explains that transfers are unavailable when the database migration is missing", async () => {
+    mocks.insertError.mockReturnValue({ code: "PGRST204", message: "Could not find the 'payment_method' column of 'registrations' in the schema cache" });
+    expect(await createTicketIntent(eventId, undefined, consent, "transfer")).toMatchObject({ ok: false, error: expect.stringContaining("Bank transfers are not enabled yet") });
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("reserves a transfer without creating a Mercado Pago checkout", async () => {
+    expect(await createTicketIntent(eventId, undefined, consent, "transfer")).toMatchObject({ ok: true, initPoint: "/checkout/transfer/booking", chargeAmountPen: 90 });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ payment_method: "transfer", payment_status: "pending" }));
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
   it.each(["pending", "rejected"])("does not sell tickets before account approval: %s", async nationality_approval => {
     mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Ana", last_name: "Perez", nationality: "Peruvian", dni_id: "81234567", nationality_approval });
     expect(await buy(eventId)).toMatchObject({ ok: false });
