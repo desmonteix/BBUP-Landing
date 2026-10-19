@@ -1,5 +1,5 @@
 export const transferAccounts = {
-  PEN: { holder: "Mariah Guevara", bank: "BCP", account: "19311559118075", cci: "0021931155911807512" },
+  PEN: { holder: "Benjamin Requena", bank: "Interbank", account: "8983506967203", cci: "00389801350696720342" },
   EUR: { bank: "Santander", holder: "Erickson Aaron Edgar Lazaro Rivera", iban: "ES53 0049 4734 3226 1667 6917", bic: "BSCHESMMXXX", address: "Calle de Muntaner 448, Sarrià-Sant-Gervasi, Barcelona" },
 };
 

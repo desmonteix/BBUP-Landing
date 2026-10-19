@@ -23,7 +23,7 @@ export function ReceiptUpload({ registrationId, euroAvailable, uploadsEnabled = 
     <h2 className="font-display text-lg font-semibold">Upload payment receipt / Adjuntar comprobante</h2>
     <label className="block text-sm">Currency transferred / Moneda
       <select name="currency" className="mt-1 block w-full rounded border p-2" disabled={busy}>
-        <option value="PEN">PEN — BCP soles</option>
+        <option value="PEN">PEN — Interbank soles</option>
         <option value="EUR" disabled={!euroAvailable}>EUR — Santander{!euroAvailable ? " (tipo de cambio no disponible)" : ""}</option>
       </select>
     </label>
