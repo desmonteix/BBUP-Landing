@@ -33,12 +33,14 @@ beforeEach(() => {
 });
 describe("ticket purchases", () => {
   it("explains that transfers are unavailable when the database migration is missing", async () => {
+    mocks.profile.mockResolvedValue({ id: "buyer", nationality: "German", first_name: "Ana", last_name: "Perez" });
     mocks.insertError.mockReturnValue({ code: "PGRST204", message: "Could not find the 'payment_method' column of 'registrations' in the schema cache" });
     expect(await createTicketIntent(eventId, undefined, consent, "transfer")).toMatchObject({ ok: false, error: expect.stringContaining("Bank transfers are not enabled yet") });
     expect(mocks.preference).not.toHaveBeenCalled();
   });
   it("reserves a transfer without creating a Mercado Pago checkout", async () => {
-    expect(await createTicketIntent(eventId, undefined, consent, "transfer")).toMatchObject({ ok: true, initPoint: "/checkout/transfer/booking", chargeAmountPen: 90 });
+    mocks.profile.mockResolvedValue({ id: "buyer", nationality: "German", first_name: "Ana", last_name: "Perez" });
+    expect(await createTicketIntent(eventId, undefined, consent, "transfer")).toMatchObject({ ok: true, initPoint: "/checkout/transfer/booking", displayPriceEur: 30 });
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ payment_method: "transfer", payment_status: "pending" }));
     expect(mocks.preference).not.toHaveBeenCalled();
   });
@@ -68,10 +70,22 @@ describe("ticket purchases", () => {
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ ticket_quantity: 2, companion_first_name: "Ana", companion_last_name: "Perez", amount_pen: 195 }));
     expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 195 }));
   });
-  it("uses the buyer's EUR reference and conversion for both entries", async () => {
+  it("reserves both foreign entries in euros by transfer", async () => {
     mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
     expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 210, displayPriceEur: 60, exchangeRate: 3.5 });
-    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 210 }));
+    expect(mocks.preference).not.toHaveBeenCalled();
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ payment_method: "transfer", display_price_eur: 60 }));
+  });
+  it("rejects a forged transfer request from a Peruvian buyer", async () => {
+    expect(await createTicketIntent(eventId, undefined, consent, "transfer")).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("rejects a forged Mercado Pago request from a foreign buyer", async () => {
+    mocks.profile.mockResolvedValue({ id: "buyer", nationality: "German" });
+    expect(await createTicketIntent(eventId, undefined, consent, "mercadopago")).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.preference).not.toHaveBeenCalled();
   });
   it("rejects a forged companion request when disabled", async () => {
     mocks.event.mockResolvedValue({ ...event, allow_companion: false });
@@ -153,7 +167,8 @@ describe("automatic offer checkout", () => {
     mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "German" });
     mocks.event.mockResolvedValue({ ...event, offer_rules: { discount: { type: "fixed", value: 35, ...window } } });
     expect(await buy(eventId, companion)).toMatchObject({ ok: true, chargeAmountPen: 175, displayPriceEur: 50 });
-    expect(mocks.preference).toHaveBeenCalledWith(expect.objectContaining({ amountPen: 175 }));
+    expect(mocks.preference).not.toHaveBeenCalled();
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ payment_method: "transfer", display_price_eur: 50 }));
   });
   it("does not send a different total than the buyer saw to Mercado Pago", async () => {
     expect(await createTicketIntent(eventId, companion, { ...consent, expectedAmountPen: 90 })).toMatchObject({ ok: false });

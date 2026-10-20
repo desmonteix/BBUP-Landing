@@ -98,14 +98,14 @@ real, publicly reachable HTTPS URL to test an actual end-to-end payment —
 http 3000` and set `NEXT_PUBLIC_SITE_URL` to the ngrok URL for the
 session) or test against a Vercel preview deployment.
 
-**Currency constraint (spec §3/§4/§5):** Peru's Checkout Pro only ever
-charges in PEN, even for international cards — the card network/issuing
-bank converts on the buyer's side, same mechanism as Airbnb/Netflix, but
-the amount Mercado Pago itself processes is always soles. So
-`events.price_eur` is a **display-only** reference price for exchange
-students; the actual charge is always `events.price_pen` (Peruvian buyers)
-or `events.price_eur × current exchange rate` rounded to 2 decimals
-(everyone else). See "Exchange rates" below for where that rate comes from.
+**Checkout policy:** Nationality comes from the authenticated profile.
+Peruvian buyers see only PEN and pay only through Mercado Pago. All other
+nationalities see only EUR and pay only by bank transfer to the EUR account.
+This applies to checkout, discounts, account tickets and email receipts.
+The server rejects the other payment method; transfer pages reject Peruvian
+profiles and receipt uploads accept only EUR for transfer reservations.
+Existing PEN totals and exchange rates remain internal to offer calculations
+and accounting. See "Exchange rates" below for where that rate comes from.
 
 ### 5. Exchange rates (BCRP daily cron)
 
@@ -171,8 +171,8 @@ npm run placeholders  # regenerate the SVG placeholder images in public/images
 - **Nationality-gated pricing (spec §5, §8) is the one hard security
   requirement in this build.** `src/lib/pricing.ts#resolvePriceForNationality`
   is the single choke point that turns `(nationality, event, exchangeRate)`
-  into exactly one `ResolvedPrice` — always a real PEN charge amount, plus
-  a EUR reference figure *only* for non-Peruvian buyers. Every path that
+  into exactly one `ResolvedPrice` — an internal PEN total, plus
+  a EUR transfer total *only* for non-Peruvian buyers. Every path that
   can reach the browser — `src/lib/db/events.ts#toPublicEvent`, the
   `createTicketIntent` Server Action, the Mercado Pago preference it
   creates — passes through it and only ever forwards the one resolved
@@ -237,7 +237,7 @@ controls configure the rules that change checkout prices during their schedules.
 Paid events can optionally allow a named companion. Both first and last name are
 required. Before offers, the buyer pays two entries at their own profile's unit price (including
 the same EUR-to-PEN conversion when applicable). One registration stores the two
-attendees and the total charge, so Mercado Pago settles both together. Capacity,
+attendees and the total, settled together through the buyer's permitted payment method. Capacity,
 admin counts, account details and receipts include the companion. Existing
 registrations remain one entry; existing events disable +1 by default.
 
@@ -294,8 +294,9 @@ EUR/PEN is obtained automatically from the BCRP daily selling-rate series
 [PD04648PD](https://estadisticas.bcrp.gob.pe/estadisticas/series/diarias/tipo-de-cambio),
 using its latest published value within the past ten days and an hourly Next.js
 fetch cache. No API key is required. Package conversion is independent of buyer nationality.
-The package total and its source currency/rate/date appear at checkout and on the
-receipt, and are persisted in `pricing_snapshot`. Mercado Pago still charges PEN.
+The package source currency/rate/date are persisted in `pricing_snapshot` for
+administrators. Buyers see totals and savings only in their profile's currency:
+PEN through Mercado Pago for Peru, EUR through bank transfer for everyone else.
 If a required rate cannot be obtained, that package cannot be purchased; the app
 never guesses a conversion. A changed total requires the buyer to reload.
 
@@ -310,13 +311,13 @@ Apply `supabase/migrations/0007_staff_companion_pricing.sql` after migration 000
 A Peruvian staff buyer gets one personal PEN tariff per event. Their companion
 uses the international EUR tariff converted to PEN at the same effective rate
 used for foreign buyers. For example, S/80 personal + S/96 companion = S/176.
-Foreign buyers and their companions retain the same EUR reference tariff.
+Foreign buyers and their companions pay the same EUR tariff by bank transfer.
 
 Pending and paid tickets count toward the buyer's personal entry; failed
 attempts do not. After an existing reservation, the event form sells one named
 companion ticket, including when only one seat remains. A later staff companion
 costs S/96 in the example, and cannot reuse the personal S/80 tariff. Staff see
-the itemized prices and total in soles; international buyers retain EUR references.
+the itemized prices and total in soles; international buyers see only EUR totals.
 Active offers still apply to the resulting subtotal and do not stack.
 
 The server independently checks history, prices, consent and capacity before

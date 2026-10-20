@@ -127,7 +127,7 @@ export function EventForm({
             />
           </div>
           <div>
-            <Label htmlFor="priceEur">Price (EUR) — display only, exchange students</Label>
+            <Label htmlFor="priceEur">Price (EUR) — bank transfer, foreign buyers</Label>
             <Input
               id="priceEur"
               name="priceEur"
@@ -138,10 +138,8 @@ export function EventForm({
               required
             />
             <p className="mt-1 text-xs text-ink/45">
-              Shown as the headline price to non-Peruvian buyers. Mercado Pago can only
-              charge soles, so at checkout this is converted to PEN at the current
-              exchange rate (see the Exchange rate panel below) — never charged in EUR
-              directly.
+              Foreign buyers see only euros and pay by bank transfer. Peruvian buyers
+              see only soles and pay through Mercado Pago.
             </p>
           </div>
         </div>
@@ -179,7 +177,7 @@ export function EventForm({
                 <div><Label htmlFor="promotionQuantity">Entradas por paquete</Label><Input id="promotionQuantity" name="promotionQuantity" type="number" min="1" max="2" step="1" required defaultValue={bundle?.quantity ?? 2} /></div>
                 <div><Label htmlFor="promotionAmount">Precio total del paquete</Label><Input id="promotionAmount" name="promotionAmount" type="number" min="0.01" max="999999" step="0.01" required defaultValue={bundle?.amount} placeholder="45.00" /></div>
                 <div><Label htmlFor="promotionCurrency">Moneda del paquete</Label><Select id="promotionCurrency" name="promotionCurrency" defaultValue={bundle?.currency ?? "EUR"}><option value="EUR">EUR (euros)</option><option value="PEN">PEN (soles)</option></Select></div>
-                <p className="text-xs text-ink/60 sm:col-span-3">El tipo de cambio se actualiza automáticamente. Mercado Pago cobra en soles; el comprador ve el precio de referencia y su conversión.</p>
+                <p className="text-xs text-ink/60 sm:col-span-3">El tipo de cambio se actualiza automáticamente. El comprador peruano ve el total en soles y paga por Mercado Pago; el extranjero ve el total en euros y paga por transferencia.</p>
               </div>}
               {promotionType !== "none" && <>
                 <p className="text-xs text-ink/60">Para paquetes de dos entradas, activa +1. Cada entrada ocupa un cupo.</p>

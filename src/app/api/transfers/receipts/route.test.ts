@@ -12,7 +12,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({
 }) }));
 import { POST } from "./route";
 const id = "00000000-0000-4000-8000-000000000001";
-function request(bytes: number[] = [255, 216, 255, 224], currency = "PEN", origin = "https://bbup.pe") {
+function request(bytes: number[] = [255, 216, 255, 224], currency = "EUR", origin = "https://bbup.pe") {
   const body = new FormData();
   body.set("registrationId", id); body.set("currency", currency);
   body.set("receipt", new Blob([new Uint8Array(bytes)]), "receipt.jpg");
@@ -20,8 +20,8 @@ function request(bytes: number[] = [255, 216, 255, 224], currency = "PEN", origi
 }
 beforeEach(() => {
   vi.clearAllMocks();
-  m.profile.mockResolvedValue({ id: "buyer" });
-  m.registration.mockResolvedValue({ data: { id, payment_status: "pending", display_price_eur: null }, error: null });
+  m.profile.mockResolvedValue({ id: "buyer", nationality: "German" });
+  m.registration.mockResolvedValue({ data: { id, payment_status: "pending", payment_method: "transfer", display_price_eur: 30 }, error: null });
   m.existing.mockResolvedValue({ data: [], error: null });
   m.upload.mockResolvedValue("bbup-receipts/asset");
   m.rpc.mockResolvedValue({ error: null });
@@ -40,6 +40,7 @@ it("rejects reservations inaccessible to the buyer", async () => {
   expect((await POST(request())).status).toBe(409); expect(m.upload).not.toHaveBeenCalled();
 });
 it("does not accept invented euro amounts", async () => {
+  m.registration.mockResolvedValue({ data: { id, payment_status: "pending", payment_method: "transfer", display_price_eur: null }, error: null });
   expect((await POST(request(undefined, "EUR"))).status).toBe(400); expect(m.upload).not.toHaveBeenCalled();
 });
 it("rejects non-image content despite its filename", async () => {
@@ -51,7 +52,21 @@ it("does not accept another receipt while one awaits review", async () => {
 });
 it("stores a receipt through the atomic database function without marking the ticket paid", async () => {
   expect((await POST(request())).status).toBe(200);
-  expect(m.rpc).toHaveBeenCalledWith("submit_transfer_receipt", expect.objectContaining({ p_registration: id, p_profile: "buyer", p_currency: "PEN", p_asset: "bbup-receipts/asset" }));
+  expect(m.rpc).toHaveBeenCalledWith("submit_transfer_receipt", expect.objectContaining({ p_registration: id, p_profile: "buyer", p_currency: "EUR", p_asset: "bbup-receipts/asset" }));
+});
+it("rejects Peruvian buyers before uploading a transfer receipt", async () => {
+  m.profile.mockResolvedValue({ id: "buyer", nationality: "Peruvian" });
+  expect((await POST(request())).status).toBe(403);
+  expect(m.upload).not.toHaveBeenCalled();
+});
+it("rejects transfers in soles", async () => {
+  expect((await POST(request(undefined, "PEN"))).status).toBe(400);
+  expect(m.upload).not.toHaveBeenCalled();
+});
+it("rejects receipts for a Mercado Pago reservation", async () => {
+  m.registration.mockResolvedValue({ data: { id, payment_status: "pending", payment_method: "mercadopago", display_price_eur: 30 }, error: null });
+  expect((await POST(request())).status).toBe(409);
+  expect(m.upload).not.toHaveBeenCalled();
 });
 it("removes the unused image if the database rejects a raced submission", async () => {
   m.rpc.mockResolvedValue({ error: { message: "Already paid" } });

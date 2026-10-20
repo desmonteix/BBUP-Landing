@@ -42,31 +42,22 @@ export function effectiveRateFor(currentExchangeRate: ExchangeRate): number {
 }
 
 /**
- * Nationality-gated pricing (spec §5, §8, reworked for Mercado Pago in
- * §3/§4/§10). This is the ONLY place the PEN-charge decision is made.
+ * Nationality-gated pricing and the internal PEN equivalent used by offers.
  * Server-only by construction (imports "server-only", so bundling this
  * into a Client Component fails the build).
  *
- * Mercado Pago's Peru Checkout Pro can only ever charge in PEN — even for
- * international cards (the card network/issuing bank converts on the
- * buyer's side, same as Airbnb/Netflix, but the amount MP itself processes
- * is always soles). So every buyer's `chargeAmountPen` is a real PEN
- * amount:
- *   - Peruvian buyers: `events.price_pen`, charged as-is. No conversion
- *     happens, so the markup never touches them.
- *   - Everyone else: `events.price_eur` converted to PEN at the effective
- *     rate (see `effectiveRateFor`), rounded to 2 decimals. The EUR figure
- *     and the rate used are carried along ONLY so the UI/receipt can show
- *     "€30 ≈ S/ 108.00" — never as something that gets charged directly.
+ * Peruvian buyers pay `events.price_pen` through Mercado Pago and see only
+ * soles. Foreign buyers transfer the EUR quote and see only euros. Their
+ * `chargeAmountPen` is an internal equivalent for the shared offer engine
+ * and accounting, calculated at the effective rate and rounded to 2 decimals.
  *
  * Takes the whole `ExchangeRate` row rather than a bare number because the
  * markup depends on where the rate came from; passing `.rate` alone would
  * silently drop that distinction.
  *
  * `exchangeRate` in the result is always the rate actually applied, never
- * the raw BCRP figure — TicketForm shows it next to `chargeAmountPen`, so
- * `displayPriceEur * exchangeRate` has to equal what the card is charged or
- * the buyer sees arithmetic that does not add up.
+ * the raw BCRP figure, so recorded amounts and offer calculations use the
+ * same conversion.
  *
  * Hard rule: callers must take the returned `ResolvedPrice` and must never
  * also forward the source event's `price_pen`/`price_eur` fields to the
