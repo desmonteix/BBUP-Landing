@@ -47,7 +47,8 @@ export function TicketForm({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "transfer">("transfer");
+  const currency = resolvedPrice?.displayPriceEur != null ? "EUR" : "PEN";
+  const paymentMethod = currency === "PEN" ? "mercadopago" : "transfer";
   const hasTerms = Boolean(termsText || termsUrl);
   const quantity = withCompanion && !additionalTicket ? 2 : 1;
   const [now, setNow] = useState(() => Date.now());
@@ -56,6 +57,10 @@ export function TicketForm({
     return () => window.clearInterval(timer);
   }, []);
   const totalPrice = resolvedPrice ? quoteTickets(resolvedPrice, quantity, offerRules, now, promotionExchangeRate) : null;
+  const displayMoney = (amountPen: number) => formatMoney(currency === "EUR" ? Math.round(amountPen / resolvedPrice!.exchangeRate! * 100) / 100 : amountPen, currency);
+  // Offer names can contain their configured currency; only show the buyer's currency.
+  const offerLabel = totalPrice?.appliedOffer === "2x1" ? "2x1"
+    : totalPrice?.appliedOffer?.endsWith("de descuento") ? "Descuento" : "Promoción";
 
   if (!isLoggedIn) {
     return (
@@ -127,50 +132,21 @@ export function TicketForm({
         </fieldset>
       )}
       {additionalTicket && !allowCompanion && <p role="status" className="text-sm text-ink/65">Ya tienes una entrada para este evento y el organizador no permite acompañantes.</p>}
-      {totalPrice && !totalPrice.available && <p role="status" className="text-sm text-ink/65">El tipo de cambio EUR/PEN no está disponible temporalmente. Vuelve a intentarlo en unos minutos.</p>}
+      {totalPrice && !totalPrice.available && <p role="status" className="text-sm text-ink/65">El precio no está disponible temporalmente. Vuelve a intentarlo en unos minutos.</p>}
       {totalPrice?.available && (
         <div className="rounded-md border border-border bg-paper-sunk p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">
             Total ({quantity} {quantity === 1 ? "entrada" : "entradas"})
           </p>
-          {resolvedPrice?.staffEntryAvailable !== undefined ? (
-            <>
-              <p className="mt-1 font-display text-2xl font-semibold text-ink">{formatMoney(totalPrice.chargeAmountPen, "PEN")}</p>
+          <p className="mt-1 font-display text-2xl font-semibold text-ink">
+            {formatMoney(currency === "EUR" ? totalPrice.displayPriceEur! : totalPrice.chargeAmountPen, currency)}
+          </p>
+          {resolvedPrice?.staffEntryAvailable !== undefined && (
               <div className="mt-2 space-y-1 text-sm text-ink/70">
                 <p>{additionalTicket ? "Entrada +1 (tarifa de extranjeros en soles)" : "Tu entrada (staff)"}: {formatMoney(resolvedPrice.chargeAmountPen, "PEN")}</p>
                 {quantity === 2 && resolvedPrice.companionPricePen != null && <p>Entrada +1 (tarifa de extranjeros en soles): {formatMoney(resolvedPrice.companionPricePen, "PEN")}</p>}
-                {totalPrice.savingsPen > 0 && <p>{totalPrice.appliedOffer}: −{formatMoney(totalPrice.savingsPen, "PEN")}</p>}
+                {totalPrice.savingsPen > 0 && <p>{offerLabel}: −{displayMoney(totalPrice.savingsPen)}</p>}
               </div>
-            </>
-          ) : totalPrice.promotionReference ? (
-            <>
-              <p className="mt-1 font-display text-2xl font-semibold text-ink">{formatMoney(totalPrice.promotionReference.amount, totalPrice.promotionReference.currency)}</p>
-              <p className="mt-1 text-sm text-ink/70">{formatMoney(totalPrice.chargeAmountPen, "PEN")} a cobrar en soles</p>
-              <p className="mt-1 text-xs text-ink/70">Tipo de cambio: S/ {totalPrice.promotionReference.rate.toFixed(4)} por {totalPrice.promotionReference.currency}. Fuente: {totalPrice.promotionReference.source}, {totalPrice.promotionReference.date}.</p>
-            </>
-          ) : totalPrice.displayPriceEur != null && totalPrice.exchangeRate != null ? (
-            <>
-              <p className="mt-1 font-display text-2xl font-semibold text-ink">
-                {formatMoney(totalPrice.displayPriceEur, "EUR")}
-              </p>
-              <p className="mt-1 text-sm text-ink/70">
-                ≈ {formatMoney(totalPrice.chargeAmountPen, "PEN")} {paymentMethod === "transfer" ? "if transferring in soles" : "charged to your card"}
-              </p>
-              {paymentMethod === "mercadopago" && <p className="mt-1 text-xs text-ink/70">
-                Mercado Pago (our payment provider in Peru) only processes soles, so your card is
-                charged at our conversion rate of S/ {totalPrice.exchangeRate.toFixed(3)} per
-                €
-                {totalPrice.includesMargin
-                  ? ": Peru's official BCRP rate plus a small margin covering payment costs."
-                  : ", set by hand by our team."}{" "}
-                Your bank then converts that to your own currency at its own rate, and may add a
-                foreign transaction fee.
-              </p>}
-            </>
-          ) : (
-            <p className="mt-1 font-display text-2xl font-semibold text-ink">
-              {formatMoney(totalPrice.chargeAmountPen, "PEN")}
-            </p>
           )}
         </div>
       )}
@@ -189,17 +165,18 @@ export function TicketForm({
 
       {totalPrice?.available && totalPrice.savingsPen > 0 && (
         <div className="rounded-md bg-paper-sunk p-4 text-sm" aria-live="polite">
-          <p>Precio original: <span className="line-through">{formatMoney(totalPrice.subtotalPen, "PEN")}</span></p>
-          <p className="font-semibold text-pink">{totalPrice.appliedOffer}: ahorras {formatMoney(totalPrice.savingsPen, "PEN")}</p>
+          <p>Precio original: <span className="line-through">{displayMoney(totalPrice.subtotalPen)}</span></p>
+          <p className="font-semibold text-pink">{offerLabel}: ahorras {displayMoney(totalPrice.savingsPen)}</p>
           <p className="mt-1 text-xs text-ink/60">Se aplica una sola oferta: la que deja el menor precio.</p>
         </div>
       )}
 
       {totalPrice && totalPrice.chargeAmountPen > 0 && <fieldset disabled={busy} className="space-y-3 rounded-md border border-border p-4">
         <legend className="px-2 text-sm font-semibold">Payment method / Medio de pago</legend>
-        <label className="flex gap-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "transfer"} onChange={() => setPaymentMethod("transfer")} />Bank transfer / Transferencia (EUR o PEN)</label>
-        <p className="text-xs text-ink/70">See bank details, transfer and upload your receipt. Your ticket is confirmed after administrator review.</p>
-        <label className="flex gap-3 text-sm"><input type="radio" name="paymentMethod" checked={paymentMethod === "mercadopago"} onChange={() => setPaymentMethod("mercadopago")} />Card / Tarjeta — Mercado Pago</label>
+        {paymentMethod === "transfer" ? <>
+          <p className="text-sm font-semibold">Bank transfer / Transferencia (EUR)</p>
+          <p className="text-xs text-ink/70">See bank details, transfer and upload your receipt. Your ticket is confirmed after administrator review.</p>
+        </> : <p className="text-sm font-semibold">Card / Tarjeta — Mercado Pago</p>}
       </fieldset>}
       <button
         type="submit"

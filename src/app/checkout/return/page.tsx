@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findPaymentByRegistration } from "@/lib/mercadopago";
 import { applyPaymentToRegistration } from "@/lib/db/payments";
@@ -39,10 +39,7 @@ export default async function CheckoutReturnPage({
 }) {
   const { registration_id: registrationId } = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getCurrentProfile();
 
   let owned = false;
   let registration: {
@@ -52,15 +49,15 @@ export default async function CheckoutReturnPage({
   } | null = null;
   let eventTitle: string | null = null;
 
-  if (registrationId && user) {
+  if (registrationId && profile) {
     const admin = createAdminClient();
     const { data } = await admin
       .from("registrations")
-      .select("payment_status, amount_pen, display_price_eur, profile_id, event_id")
+      .select("payment_status, payment_method, amount_pen, display_price_eur, profile_id, event_id")
       .eq("id", registrationId)
       .maybeSingle();
 
-    if (data && data.profile_id === user.id) {
+    if (data && data.profile_id === profile.id) {
       owned = true;
       registration = data;
 
@@ -68,7 +65,7 @@ export default async function CheckoutReturnPage({
       // attempt was rejected can retry and succeed, and freezing that row
       // would leave the page telling someone who was charged that no charge
       // was made. Free RSVPs ("n/a") have no payment to look up.
-      const settleable = data.payment_status === "pending" || data.payment_status === "failed";
+      const settleable = data.payment_method !== "transfer" && (data.payment_status === "pending" || data.payment_status === "failed");
 
       if (settleable) {
         const payment = await findPaymentByRegistration(registrationId);
@@ -102,6 +99,8 @@ export default async function CheckoutReturnPage({
     }
   }
 
+  const currency = profile?.nationality === "Peruvian" ? "PEN" : "EUR";
+  const amount = currency === "PEN" ? registration?.amount_pen : registration?.display_price_eur;
   return (
     <section className="flex min-h-[70vh] items-center justify-center px-5 py-16 sm:px-8">
       <Container className="max-w-md text-center">
@@ -112,8 +111,7 @@ export default async function CheckoutReturnPage({
               You&rsquo;re in{eventTitle ? ` for ${eventTitle}` : ""}!
             </h1>
             <p className="mt-2 text-sm text-ink/65">
-              {registration.amount_pen != null &&
-                `${formatMoney(registration.amount_pen, "PEN")} charged. `}
+              {amount != null && `${formatMoney(amount, currency)} paid. `}
               A receipt is on its way to your email.
             </p>
           </>
@@ -124,8 +122,7 @@ export default async function CheckoutReturnPage({
               That payment didn&rsquo;t go through
             </h1>
             <p className="mt-2 text-sm text-ink/65">
-              No charge was made. Head back to the event and try again — a different card
-              sometimes does the trick.
+              Head back to the event to create a new reservation and try again.
             </p>
           </>
         ) : (
@@ -135,9 +132,10 @@ export default async function CheckoutReturnPage({
               Confirming your payment…
             </h1>
             <p className="mt-2 text-sm text-ink/65">
-              Mercado Pago is finishing up. This can take a minute — we&rsquo;ll email your
-              receipt as soon as it&rsquo;s confirmed. You can also check your ticket status from
-              your account.
+              {profile?.nationality === "Peruvian"
+                ? "Mercado Pago is finishing up. This can take a minute."
+                : "Your payment is pending confirmation."}{" "}
+              You can check your ticket status from your account.
             </p>
           </>
         )}
@@ -149,7 +147,7 @@ export default async function CheckoutReturnPage({
           <LinkButton href="/account">View my account</LinkButton>
         </div>
 
-        {!user && (
+        {!profile && (
           <p className="mt-4 text-xs text-ink/45">
             <Link href="/login?redirect=/account" className="font-semibold text-pink hover:underline">
               Log in

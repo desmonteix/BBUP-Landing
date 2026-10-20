@@ -99,22 +99,17 @@ export type TicketIntentResult =
   | { ok: false; error: string };
 
 /**
- * Creates a pending `registrations` row for a paid ticket, resolves the
- * buyer's price server-side (spec §5, §8 — PEN always, EUR is
- * display-only, see src/lib/pricing.ts), and opens a Mercado Pago Checkout
- * Pro preference for the resolved PEN amount. Returns ONLY that buyer's
- * own resolved order total plus the hosted-checkout redirect URL.
- * Staff companions use the international tariff converted to PEN.
- * Requires a logged-in profile so the
- * nationality lookup has something to resolve against.
+ * Resolves the price and payment method from the authenticated profile.
+ * Peru uses Mercado Pago in PEN; foreign buyers transfer the EUR quote.
+ * PEN totals are retained internally for existing offer and capacity records.
  */
 export async function createTicketIntent(
   eventId: string,
   companion?: { firstName: string; lastName: string },
   consent?: { accepted: boolean; version: string; expectedAmountPen?: number },
-  paymentMethod: "mercadopago" | "transfer" = "mercadopago"
+  paymentMethod?: "mercadopago" | "transfer"
 ): Promise<TicketIntentResult> {
-  if (paymentMethod !== "mercadopago" && paymentMethod !== "transfer") return { ok: false, error: "Invalid payment method." };
+  if (paymentMethod !== undefined && paymentMethod !== "mercadopago" && paymentMethod !== "transfer") return { ok: false, error: "Invalid payment method." };
   const parsed = ticketIntentSchema.safeParse({ eventId, companion, accepted: consent?.accepted, version: consent?.version, expectedAmountPen: consent?.expectedAmountPen });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form." };
 
@@ -128,6 +123,13 @@ export async function createTicketIntent(
   if (nationalityError) return { ok: false, error: `${nationalityError.message} Corrígelo en tu perfil antes de comprar.` };
   const approvalError = accountApprovalMessage(profile);
   if (approvalError) return { ok: false, error: approvalError };
+  const allowedMethod = profile.nationality === "Peruvian" ? "mercadopago" : "transfer";
+  if (paymentMethod !== undefined && paymentMethod !== allowedMethod) {
+    return { ok: false, error: allowedMethod === "mercadopago"
+      ? "Los usuarios de Perú solo pueden pagar en soles por Mercado Pago."
+      : "Foreign buyers can only pay in euros by bank transfer." };
+  }
+  paymentMethod = allowedMethod;
 
   const supabase = await createClient();
   const event = await getEventRowById(supabase, parsed.data.eventId);

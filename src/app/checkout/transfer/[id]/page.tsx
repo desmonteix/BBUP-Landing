@@ -17,10 +17,11 @@ export default async function TransferPage({ params }: { params: Promise<{ id: s
   if (!z.string().uuid().safeParse(id).success) notFound();
   const profile = await getCurrentProfile();
   if (!profile) redirect(`/login?redirect=${encodeURIComponent(`/checkout/transfer/${id}`)}`);
+  if (profile.nationality === "Peruvian") redirect("/account");
   const db = await createClient();
-  const { data: r, error } = await db.from("registrations").select("id, name, amount_pen, display_price_eur, payment_status, ticket_quantity, events(title)").eq("id", id).eq("profile_id", profile.id).eq("kind", "ticket").maybeSingle();
+  const { data: r, error } = await db.from("registrations").select("id, name, amount_pen, display_price_eur, payment_method, payment_status, ticket_quantity, events(title)").eq("id", id).eq("profile_id", profile.id).eq("kind", "ticket").maybeSingle();
   if (error) throw new Error("Could not load reservation.");
-  if (!r) notFound();
+  if (!r || r.payment_method !== "transfer") notFound();
   const { data: receipts, error: receiptError } = await db.from("payment_receipts").select("id, status, currency, created_at").eq("registration_id", id).order("created_at", { ascending: false });
   if (receiptError) throw new Error("Could not load receipts.");
   const active = receipts?.some(receipt => receipt.status !== "rejected");
@@ -51,14 +52,7 @@ export default async function TransferPage({ params }: { params: Promise<{ id: s
     <p>{event?.title} · {r.ticket_quantity} ticket(s) · {r.name}</p>
     <p className="break-all text-sm">Payment reference / Referencia: <strong>{r.id}</strong></p>
     {r.payment_status === "paid" ? <p role="status">Payment confirmed / Pago confirmado.</p> : r.payment_status !== "pending" ? <p role="status">This payment attempt has ended. Create a new reservation and choose bank transfer. / Este intento finalizó. <Link href="/events" className="text-pink underline">Crear una nueva reserva por transferencia</Link>.</p> : <>
-      <p className="text-sm">Choose one account and transfer the corresponding amount. Include the reference above in the transfer description. / Elige una cuenta e incluye la referencia en el concepto.</p>
-      <div className="rounded-md border border-border bg-white p-5 text-sm space-y-2">
-        <h2 className="font-display text-xl font-semibold">PEN — {formatMoney(r.amount_pen ?? 0, "PEN")}</h2>
-        <p>Bank / Banco: {transferAccounts.PEN.bank} — soles</p>
-        <p>Account holder / Titular: {transferAccounts.PEN.holder}</p>
-        <p className="break-all">Account / Cuenta: <strong>{transferAccounts.PEN.account}</strong></p>
-        <p className="break-all">CCI: <strong>{transferAccounts.PEN.cci}</strong></p>
-      </div>
+      <p className="text-sm">Transfer the euro amount to the account below. Include the reference above in the transfer description. / Transfiere el importe en euros a la siguiente cuenta e incluye la referencia en el concepto.</p>
       <div className="rounded-md border border-border bg-white p-5 text-sm space-y-2">
         <h2 className="font-display text-xl font-semibold">EUR — Santander {euro != null && `— ${formatMoney(euro, "EUR")}`}</h2>
         <p>Account Name / Titular: {transferAccounts.EUR.holder}</p>
@@ -68,7 +62,7 @@ export default async function TransferPage({ params }: { params: Promise<{ id: s
         {euro == null && <p>The EUR exchange rate is temporarily unavailable. / El tipo de cambio para Santander EUR no está disponible temporalmente.</p>}
       </div>
       <p className="text-sm text-ink/70">Transfer the full quoted amount; your bank may charge separate fees. / Transfiere el importe completo indicado; tu banco puede cobrar comisiones adicionales.</p>
-      {active ? <p role="status" className="rounded border border-border p-4">Receipt submitted — pending review. / Comprobante enviado, pendiente de revisión. Your ticket is not confirmed yet.</p> : <ReceiptUpload registrationId={r.id} euroAvailable={euro != null} uploadsEnabled={receiptsConfigured()} />}
+      {active ? <p role="status" className="rounded border border-border p-4">Receipt submitted — pending review. / Comprobante enviado, pendiente de revisión. Your ticket is not confirmed yet.</p> : <ReceiptUpload registrationId={r.id} euroAvailable={euro != null} uploadsEnabled={receiptsConfigured() && euro != null} />}
     </>}
     {!!receipts?.length && <div className="space-y-2"><h2 className="font-semibold">Receipts / Comprobantes</h2>{receipts.map(receipt => <p key={receipt.id} className="text-sm">{receipt.currency} · {receipt.status === "pending" ? "Pending review / Pendiente" : receipt.status === "approved" ? "Approved / Aprobado" : "Rejected — check the bank deposit and send a corrected receipt / Rechazado: revisa el ingreso y adjunta el comprobante correcto"} · <a href={`/api/transfers/receipts/${receipt.id}`} target="_blank" rel="noreferrer" className="text-pink underline">View / Ver</a></p>)}</div>}
   </section>;

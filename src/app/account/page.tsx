@@ -18,11 +18,12 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login?redirect=/account");
+  const isPeruvian = profile.nationality === "Peruvian";
 
   const supabase = await createClient();
   const { data: tickets } = await supabase
     .from("registrations")
-    .select("id, amount_pen, display_price_eur, payment_status, created_at, ticket_quantity, companion_first_name, companion_last_name, events(title, event_date)")
+    .select("id, amount_pen, display_price_eur, payment_method, payment_status, created_at, ticket_quantity, companion_first_name, companion_last_name, events(title, event_date)")
     .eq("profile_id", profile.id)
     .eq("kind", "ticket")
     .order("created_at", { ascending: false });
@@ -89,13 +90,10 @@ export default async function AccountPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-ink">
-                        {t.amount_pen != null ? formatMoney(t.amount_pen, "PEN") : "—"}
+                        {isPeruvian
+                          ? t.amount_pen != null ? formatMoney(t.amount_pen, "PEN") : "—"
+                          : t.display_price_eur != null ? formatMoney(t.display_price_eur, "EUR") : "—"}
                       </p>
-                      {t.display_price_eur != null && (
-                        <p className="text-xs text-ink/45">
-                          {formatMoney(t.display_price_eur, "EUR")} ref.
-                        </p>
-                      )}
                       <Badge
                         tone={
                           t.payment_status === "paid"
@@ -107,8 +105,9 @@ export default async function AccountPage() {
                       >
                         {t.payment_status}
                       </Badge>
-                      {t.payment_status === "pending" && <Link href={`/checkout/transfer/${t.id}`} className="mt-2 block text-sm font-semibold text-pink underline">Transfer / Adjuntar comprobante</Link>}
-                      {t.payment_status === "failed" && <Link href="/events" className="mt-2 block text-sm text-pink underline">Nueva reserva por transferencia</Link>}
+                      {t.payment_status === "pending" && !isPeruvian && t.payment_method === "transfer" && <Link href={`/checkout/transfer/${t.id}`} className="mt-2 block text-sm font-semibold text-pink underline">Transfer / Adjuntar comprobante</Link>}
+                      {t.payment_status === "pending" && isPeruvian && t.payment_method === "mercadopago" && <Link href={`/checkout/return?registration_id=${t.id}`} className="mt-2 block text-sm font-semibold text-pink underline">Ver estado del pago</Link>}
+                      {t.payment_status === "failed" && <Link href="/events" className="mt-2 block text-sm text-pink underline">Nueva reserva</Link>}
                     </div>
                   </li>
                 );

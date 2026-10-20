@@ -6,11 +6,11 @@
  *
  * IMPORTANT (pricing safety): `PublicEvent` (sent to the browser) never
  * carries both `events.price_pen` and `events.price_eur`. `resolved_price`
- * is populated server-side from the viewer's OWN nationality and always
- * charges in PEN (Mercado Pago's Peru Checkout Pro cannot process EUR —
- * see src/lib/pricing.ts) — for non-Peruvian buyers it additionally carries
- * their EUR reference figure and the exchange rate used to convert it, but
- * never the Peruvian PEN price. Staff buyers also receive their companion's
+ * is populated server-side from the viewer's OWN nationality. It retains
+ * an internal PEN total and, for foreign buyers, the EUR transfer quote.
+ * Peru sees only soles and pays through Mercado Pago; foreign buyers see
+ * only euros and pay by transfer, never receiving the Peruvian PEN price.
+ * Staff buyers also receive their companion's
  * international rate resolved in PEN, so mixed orders can be previewed safely.
  */
 
@@ -140,12 +140,9 @@ export interface PublicEvent {
 }
 
 /**
- * What a buyer sees and what actually gets charged. `chargeAmountPen` is
- * ALWAYS what Mercado Pago will process — Peruvian buyers get it straight
- * from `events.price_pen`; everyone else gets it converted from
- * `events.price_eur` at the current `exchange_rates.rate`. `displayPriceEur`
- * and `exchangeRate` are null for Peruvian buyers (no conversion happened)
- * and set for everyone else, purely so the UI/receipt can show "€30 ≈ S/ 112.50".
+ * `chargeAmountPen` is the internal order total and the Mercado Pago amount
+ * for Peru. Foreign buyers pay `displayPriceEur` by transfer. Their PEN
+ * conversion is used internally for offer calculations, never shown in the UI.
  */
 export interface ResolvedPrice {
   chargeAmountPen: number;
@@ -157,9 +154,8 @@ export interface ResolvedPrice {
   exchangeRate: number | null;
   /**
    * Whether `exchangeRate` is the BCRP rate plus our margin, as opposed to a
-   * rate an organizer set by hand during an outage. Checkout tells the buyer
-   * how their charge was derived, and that sentence is only true for the
-   * automatic path — without this flag the UI cannot say it accurately.
+   * rate an organizer set by hand during an outage. Retained with the
+   * resolved calculation for accounting.
    */
   includesMargin: boolean;
 }
