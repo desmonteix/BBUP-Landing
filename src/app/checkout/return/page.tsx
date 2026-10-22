@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { getCurrentProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { findPaymentByRegistration } from "@/lib/mercadopago";
+import { lookupPaymentByRegistration } from "@/lib/mercadopago";
 import { applyPaymentToRegistration } from "@/lib/db/payments";
 import { formatMoney } from "@/lib/money";
 import { LinkButton } from "@/components/ui/Button";
@@ -42,8 +42,10 @@ export default async function CheckoutReturnPage({
   const profile = await getCurrentProfile();
 
   let owned = false;
+  let paymentCheck: "unpaid" | "processing" | "unverified" = "unverified";
   let registration: {
     payment_status: string;
+    payment_method: string;
     amount_pen: number | null;
     display_price_eur: number | null;
   } | null = null;
@@ -68,13 +70,18 @@ export default async function CheckoutReturnPage({
       const settleable = data.payment_method !== "transfer" && (data.payment_status === "pending" || data.payment_status === "failed");
 
       if (settleable) {
-        const payment = await findPaymentByRegistration(registrationId);
+        const lookup = await lookupPaymentByRegistration(registrationId);
+        const payment = lookup.ok ? lookup.payment : null;
+        if (lookup.ok && !payment) paymentCheck = "unpaid";
         if (payment) {
           try {
-            await applyPaymentToRegistration(payment);
+            const outcome = await applyPaymentToRegistration(payment);
+            if (outcome === "still-pending" && ["pending", "in_process", "authorized"].includes(payment.status ?? "")) {
+              paymentCheck = "processing";
+            }
             const { data: settled, error: rereadError } = await admin
               .from("registrations")
-              .select("payment_status, amount_pen, display_price_eur")
+              .select("payment_status, payment_method, amount_pen, display_price_eur")
               .eq("id", registrationId)
               .maybeSingle();
             if (rereadError) {
@@ -125,17 +132,51 @@ export default async function CheckoutReturnPage({
               Head back to the event to create a new reservation and try again.
             </p>
           </>
-        ) : (
+        ) : owned && registration?.payment_status === "pending" && registration.payment_method === "transfer" ? (
+          <>
+            <Clock className="mx-auto text-pink" size={48} />
+            <h1 className="mt-4 font-display text-2xl font-semibold text-ink">
+              Complete your bank transfer
+            </h1>
+            <p className="mt-2 text-sm text-ink/65">
+              Your ticket will be confirmed after your transfer is reviewed and approved.
+            </p>
+            <LinkButton href={`/checkout/transfer/${encodeURIComponent(registrationId!)}`} className="mt-6">
+              View transfer instructions
+            </LinkButton>
+          </>
+        ) : owned && paymentCheck === "unpaid" ? (
+          <>
+            <XCircle className="mx-auto text-pink" size={48} />
+            <h1 className="mt-4 font-display text-2xl font-semibold text-ink">
+              Payment not completed
+            </h1>
+            <p className="mt-2 text-sm text-ink/65">
+              No payment was found for this reservation. Your ticket is not confirmed.
+              If you just paid, check your account again shortly.
+            </p>
+          </>
+        ) : owned && paymentCheck === "processing" ? (
           <>
             <Clock className="mx-auto text-pink" size={48} />
             <h1 className="mt-4 font-display text-2xl font-semibold text-ink">
               Confirming your payment…
             </h1>
             <p className="mt-2 text-sm text-ink/65">
-              {profile?.nationality === "Peruvian"
-                ? "Mercado Pago is finishing up. This can take a minute."
-                : "Your payment is pending confirmation."}{" "}
+              Mercado Pago is processing your payment. Your ticket is not confirmed yet.{" "}
               You can check your ticket status from your account.
+            </p>
+          </>
+        ) : (
+          <>
+            <Clock className="mx-auto text-pink" size={48} />
+            <h1 className="mt-4 font-display text-2xl font-semibold text-ink">
+              {owned ? "Unable to verify payment" : "Payment status unavailable"}
+            </h1>
+            <p className="mt-2 text-sm text-ink/65">
+              {owned
+                ? "We could not verify your payment right now. Check your account again shortly. If you already paid, do not pay again while we check its status."
+                : "Open your account to check the status of your reservations."}
             </p>
           </>
         )}
