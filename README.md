@@ -12,6 +12,12 @@ Full requirements: `docs/superpowers/specs/2026-08-25-best-buddy-up-website-desi
 business tax ID this informal student org doesn't have).
 Design system: `design-system/best-buddy-up/MASTER.md`.
 
+Organizers can export an event's registrants and sales from `/admin/events/[id]`
+using **Exportar CSV** or **Exportar Excel**. Both downloads respect the selected
+payment filter and include attendee/companion details, ticket quantities, payment
+status, and separate PEN/EUR amounts. Excel files use numeric amount cells; CSV
+files use UTF-8 and escape spreadsheet formulas in user-provided text.
+
 ## Stack
 
 - **Framework:** Next.js 15 (App Router), TypeScript, Tailwind CSS

@@ -54,7 +54,7 @@ export default async function EditEventPage({
           Registrants ({registrants?.length ?? 0})
         </h2>
         <div className="mt-4">
-          <RegistrantsPanel eventId={id} registrants={(registrants as AdminRegistrantRow[] | null) ?? []} />
+          <RegistrantsPanel eventId={id} eventTitle={(event as EventRow).title} registrants={(registrants as AdminRegistrantRow[] | null) ?? []} />
         </div>
       </div>
     </div>
