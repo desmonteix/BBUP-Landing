@@ -105,7 +105,7 @@ export default async function AccountPage() {
                       >
                         {t.payment_status}
                       </Badge>
-                      {t.payment_status === "pending" && !isPeruvian && t.payment_method === "transfer" && <Link href={`/checkout/transfer/${t.id}`} className="mt-2 block text-sm font-semibold text-pink underline">Transfer / Adjuntar comprobante</Link>}
+                      {t.payment_status === "pending" && t.payment_method === "transfer" && <Link href={`/checkout/transfer/${t.id}`} className="mt-2 block text-sm font-semibold text-pink underline">{isPeruvian ? "Pagar por Yape / Adjuntar comprobante" : "Transfer / Adjuntar comprobante"}</Link>}
                       {t.payment_status === "pending" && isPeruvian && t.payment_method === "mercadopago" && <Link href={`/checkout/return?registration_id=${t.id}`} className="mt-2 block text-sm font-semibold text-pink underline">Ver estado del pago</Link>}
                       {t.payment_status === "failed" && <Link href="/events" className="mt-2 block text-sm text-pink underline">Nueva reserva</Link>}
                     </div>
