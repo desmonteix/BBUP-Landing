@@ -54,12 +54,24 @@ it("stores a receipt through the atomic database function without marking the ti
   expect((await POST(request())).status).toBe(200);
   expect(m.rpc).toHaveBeenCalledWith("submit_transfer_receipt", expect.objectContaining({ p_registration: id, p_profile: "buyer", p_currency: "EUR", p_asset: "bbup-receipts/asset" }));
 });
-it("rejects Peruvian buyers before uploading a transfer receipt", async () => {
+it("rejects a euro receipt from a Peruvian buyer", async () => {
   m.profile.mockResolvedValue({ id: "buyer", nationality: "Peruvian" });
-  expect((await POST(request())).status).toBe(403);
+  expect((await POST(request())).status).toBe(400);
   expect(m.upload).not.toHaveBeenCalled();
 });
-it("rejects transfers in soles", async () => {
+it("accepts a Yape receipt in soles from a Peruvian buyer", async () => {
+  m.profile.mockResolvedValue({ id: "buyer", nationality: "Peruvian" });
+  m.registration.mockResolvedValue({ data: { id, payment_status: "pending", payment_method: "transfer", display_price_eur: null, amount_pen: 90 }, error: null });
+  expect((await POST(request(undefined, "PEN"))).status).toBe(200);
+  expect(m.rpc).toHaveBeenCalledWith("submit_transfer_receipt", expect.objectContaining({ p_profile: "buyer", p_currency: "PEN" }));
+});
+it("rejects a Yape receipt for a reservation without a sol amount", async () => {
+  m.profile.mockResolvedValue({ id: "buyer", nationality: "Peruvian" });
+  m.registration.mockResolvedValue({ data: { id, payment_status: "pending", payment_method: "transfer", display_price_eur: null, amount_pen: 0 }, error: null });
+  expect((await POST(request(undefined, "PEN"))).status).toBe(400);
+  expect(m.upload).not.toHaveBeenCalled();
+});
+it("rejects soles receipts from foreign buyers", async () => {
   expect((await POST(request(undefined, "PEN"))).status).toBe(400);
   expect(m.upload).not.toHaveBeenCalled();
 });

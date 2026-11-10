@@ -6,6 +6,7 @@ import { ExternalLink, LogIn, ShieldCheck } from "lucide-react";
 import { createTicketIntent } from "@/lib/actions/registrations";
 import { formatMoney } from "@/lib/money";
 import { quoteTickets } from "@/lib/offers";
+import { MERCADOPAGO_ENABLED } from "@/lib/paymentConfig";
 import type { OfferRules, ResolvedPrice, PromotionExchangeRate } from "@/lib/types";
 
 type Intent =
@@ -48,7 +49,7 @@ export function TicketForm({
   const [lastName, setLastName] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const currency = resolvedPrice?.displayPriceEur != null ? "EUR" : "PEN";
-  const paymentMethod = currency === "PEN" ? "mercadopago" : "transfer";
+  const paymentMethod = currency === "PEN" && MERCADOPAGO_ENABLED ? "mercadopago" : "transfer";
   const hasTerms = Boolean(termsText || termsUrl);
   const quantity = withCompanion && !additionalTicket ? 2 : 1;
   const [now, setNow] = useState(() => Date.now());
@@ -173,7 +174,10 @@ export function TicketForm({
 
       {totalPrice && totalPrice.chargeAmountPen > 0 && <fieldset disabled={busy} className="space-y-3 rounded-md border border-border p-4">
         <legend className="px-2 text-sm font-semibold">Payment method / Medio de pago</legend>
-        {paymentMethod === "transfer" ? <>
+        {paymentMethod === "transfer" ? currency === "PEN" ? <>
+          <p className="text-sm font-semibold">Yape (PEN)</p>
+          <p className="text-xs text-ink/70">Verás el número de Yape, pagas y subes tu captura. Tu entrada se confirma cuando un administrador revise el pago.</p>
+        </> : <>
           <p className="text-sm font-semibold">Bank transfer / Transferencia (EUR)</p>
           <p className="text-xs text-ink/70">See bank details, transfer and upload your receipt. Your ticket is confirmed after administrator review.</p>
         </> : <p className="text-sm font-semibold">Card / Tarjeta — Mercado Pago</p>}
@@ -184,7 +188,7 @@ export function TicketForm({
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-buddy px-6 py-3 font-display font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-60"
       >
         {intent.state === "redirecting" ? (
-          totalPrice?.chargeAmountPen === 0 ? "Confirmando entradas…" : paymentMethod === "transfer" ? "Opening transfer details…" : "Taking you to Mercado Pago…"
+          totalPrice?.chargeAmountPen === 0 ? "Confirmando entradas…" : paymentMethod === "transfer" ? (currency === "PEN" ? "Abriendo datos de Yape…" : "Opening transfer details…") : "Taking you to Mercado Pago…"
         ) : intent.state === "creating" || pending ? (
           "Preparing checkout…"
         ) : (
@@ -196,7 +200,7 @@ export function TicketForm({
       </button>
       <p className="flex items-center justify-center gap-1.5 text-xs text-ink/70">
         <ShieldCheck size={14} />
-        {totalPrice?.chargeAmountPen === 0 ? "No se requiere pago." : paymentMethod === "transfer" ? "Transfer receipts require administrator approval." : "Secured by Mercado Pago — your card details never touch our servers."}
+        {totalPrice?.chargeAmountPen === 0 ? "No se requiere pago." : paymentMethod === "transfer" ? (currency === "PEN" ? "Los comprobantes de Yape requieren aprobación de un administrador." : "Transfer receipts require administrator approval.") : "Secured by Mercado Pago — your card details never touch our servers."}
       </p>
 
       {intent.state === "error" && (

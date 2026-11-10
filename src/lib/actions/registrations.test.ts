@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ profile: vi.fn(), event: vi.fn(), rate: vi.fn(), euroRate: vi.fn(), preference: vi.fn(), insert: vi.fn(), bookings: vi.fn(), update: vi.fn(), history: vi.fn(), insertError: vi.fn() }));
+const flags = vi.hoisted(() => ({ mercadopago: true }));
+vi.mock("@/lib/paymentConfig", () => ({ get MERCADOPAGO_ENABLED() { return flags.mercadopago; } }));
 vi.mock("@/lib/ticketHistory", () => ({ getEventsWithTickets: mocks.history }));
 vi.mock("@/lib/auth", () => ({ getCurrentProfile: mocks.profile }));
 vi.mock("@/lib/db/events", () => ({ getEventRowById: mocks.event }));
@@ -22,6 +24,7 @@ const consent = { accepted: true, version: createHash("sha256").update(JSON.stri
 const buy = (id: string, plusOne?: { firstName: string; lastName: string }) => createTicketIntent(id, plusOne, consent);
 beforeEach(() => {
   vi.clearAllMocks();
+  flags.mercadopago = true;
   mocks.history.mockResolvedValue(new Set());
   mocks.insertError.mockReturnValue(null);
   mocks.profile.mockResolvedValue({ id: "buyer", first_name: "Luis", last_name: "Diaz", email: "buyer@example.com", nationality: "Peruvian", dni_id: "71234567" });
@@ -78,6 +81,18 @@ describe("ticket purchases", () => {
   });
   it("rejects a forged transfer request from a Peruvian buyer", async () => {
     expect(await createTicketIntent(eventId, undefined, consent, "transfer")).toMatchObject({ ok: false });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("reserves a Peruvian buyer by Yape without calling Mercado Pago while it is disabled", async () => {
+    flags.mercadopago = false;
+    expect(await createTicketIntent(eventId, undefined, consent, "transfer")).toMatchObject({ ok: true, chargeAmountPen: 90, initPoint: "/checkout/transfer/booking" });
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ payment_method: "transfer", payment_status: "pending", amount_pen: 90 }));
+    expect(mocks.preference).not.toHaveBeenCalled();
+  });
+  it("rejects a Mercado Pago request from a Peruvian buyer while it is disabled", async () => {
+    flags.mercadopago = false;
+    expect(await createTicketIntent(eventId, undefined, consent, "mercadopago")).toMatchObject({ ok: false, error: expect.stringContaining("Yape") });
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.preference).not.toHaveBeenCalled();
   });

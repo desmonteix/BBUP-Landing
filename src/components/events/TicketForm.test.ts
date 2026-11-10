@@ -16,11 +16,11 @@ function render(price: ResolvedPrice, offerRules: OfferRules = {}) {
   }));
 }
 describe("nationality-specific checkout", () => {
-  it("shows Peru only soles and Mercado Pago", () => {
+  it("shows Peru only soles and Yape, without Mercado Pago", () => {
     const html = render(local);
     expect(html).toContain("S/ 80.00");
-    expect(html).toContain("Mercado Pago");
-    expect(html).not.toMatch(/€|EUR|transferencia|Bank transfer/i);
+    expect(html).toContain("Yape");
+    expect(html).not.toMatch(/€|EUR|Bank transfer|Mercado Pago/i);
   });
   it("shows foreigners only euros and bank transfer", () => {
     const html = render(foreign);

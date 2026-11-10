@@ -177,7 +177,7 @@ export function EventForm({
                 <div><Label htmlFor="promotionQuantity">Entradas por paquete</Label><Input id="promotionQuantity" name="promotionQuantity" type="number" min="1" max="2" step="1" required defaultValue={bundle?.quantity ?? 2} /></div>
                 <div><Label htmlFor="promotionAmount">Precio total del paquete</Label><Input id="promotionAmount" name="promotionAmount" type="number" min="0.01" max="999999" step="0.01" required defaultValue={bundle?.amount} placeholder="45.00" /></div>
                 <div><Label htmlFor="promotionCurrency">Moneda del paquete</Label><Select id="promotionCurrency" name="promotionCurrency" defaultValue={bundle?.currency ?? "EUR"}><option value="EUR">EUR (euros)</option><option value="PEN">PEN (soles)</option></Select></div>
-                <p className="text-xs text-ink/60 sm:col-span-3">El tipo de cambio se actualiza automáticamente. El comprador peruano ve el total en soles y paga por Mercado Pago; el extranjero ve el total en euros y paga por transferencia.</p>
+                <p className="text-xs text-ink/60 sm:col-span-3">El tipo de cambio se actualiza automáticamente. El comprador peruano ve el total en soles y paga por Yape; el extranjero ve el total en euros y paga por transferencia.</p>
               </div>}
               {promotionType !== "none" && <>
                 <p className="text-xs text-ink/60">Para paquetes de dos entradas, activa +1. Cada entrada ocupa un cupo.</p>

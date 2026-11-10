@@ -10,6 +10,7 @@ import { verifyNationalityClaim } from "@/lib/nationalityVerification";
 import { accountApprovalMessage } from "@/lib/nationality";
 import { getCurrentExchangeRate } from "@/lib/exchangeRate";
 import { createPaymentPreference, getSiteUrl } from "@/lib/mercadopago";
+import { MERCADOPAGO_ENABLED } from "@/lib/paymentConfig";
 import { rsvpSchema, ticketIntentSchema } from "@/lib/validation/schemas";
 import { sendRsvpConfirmation, sendTicketReceipt } from "@/lib/resend";
 import { termsVersion } from "@/lib/terms";
@@ -123,11 +124,13 @@ export async function createTicketIntent(
   if (nationalityError) return { ok: false, error: `${nationalityError.message} Corrígelo en tu perfil antes de comprar.` };
   const approvalError = accountApprovalMessage(profile);
   if (approvalError) return { ok: false, error: approvalError };
-  const allowedMethod = profile.nationality === "Peruvian" ? "mercadopago" : "transfer";
+  const allowedMethod = profile.nationality === "Peruvian" && MERCADOPAGO_ENABLED ? "mercadopago" : "transfer";
   if (paymentMethod !== undefined && paymentMethod !== allowedMethod) {
-    return { ok: false, error: allowedMethod === "mercadopago"
-      ? "Los usuarios de Perú solo pueden pagar en soles por Mercado Pago."
-      : "Foreign buyers can only pay in euros by bank transfer." };
+    return { ok: false, error: profile.nationality !== "Peruvian"
+      ? "Foreign buyers can only pay in euros by bank transfer."
+      : MERCADOPAGO_ENABLED
+        ? "Los usuarios de Perú solo pueden pagar en soles por Mercado Pago."
+        : "Los usuarios de Perú solo pueden pagar en soles por Yape." };
   }
   paymentMethod = allowedMethod;
 
